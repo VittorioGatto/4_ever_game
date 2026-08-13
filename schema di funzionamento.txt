@@ -1,0 +1,424 @@
+Schema funzionale dell’app
+
+L’app dovrebbe avere un obiettivo molto semplice: registrare le partite, calcolare automaticamente gli Rk e mantenere aggiornata la classifica.
+
+Flusso principale
+
+APERTURA APP
+   ↓
+HOME
+   ↓
+┌─────────────────────────────┐
+│ 1. Registra nuova partita   │
+│ 2. Classifica               │
+│ 3. Giocatori                │
+│ 4. Storico partite          │
+│ 5. Statistiche / Record     │
+└─────────────────────────────┘
+
+1. Registrazione di una partita
+
+L’utente seleziona:
+
+NUOVA PARTITA
+   ↓
+Tipo partita
+[ 3 vs 3 ]   [ 4 vs 4 ]
+   ↓
+Selezione giocatori
+   ↓
+Squadra A          Squadra B
+Giocatore 1        Giocatore 1
+Giocatore 2        Giocatore 2
+Giocatore 3        Giocatore 3
+(+ Giocatore 4)    (+ Giocatore 4)
+   ↓
+Inserimento risultato
+[ 2-0 ] [ 2-1 ] [ 1-2 ] [ 0-2 ]
+   ↓
+CONFERMA
+
+Dopo la conferma, l’app deve recuperare gli Rk prima della partita e calcolare automaticamente tutto il resto.
+
+
+---
+
+2. Calcolo automatico
+
+Il motore dell’app esegue questa sequenza:
+
+Rk giocatori
+      ↓
+Media Rk Squadra A
+Media Rk Squadra B
+      ↓
+Probabilità Elo
+delle due squadre
+      ↓
+Vittoria / Sconfitta
+      ↓
+K personale
+di ogni giocatore
+      ↓
+ΔRk base
+      ↓
+Correttivo individuale
+±20%
+      ↓
+Arrotondamento
+      ↓
+Nuovi Rk
+
+Per ogni giocatore:
+
+ΔRk base = K × (S − P)
+
+poi viene applicato il correttivo individuale previsto dal regolamento.
+
+
+---
+
+3. Schermata risultato
+
+Prima di salvare definitivamente, sarebbe utile mostrare una schermata del tipo:
+
+Squadra A — Vittoria
+
+Giocatore	Prima	Variazione	Dopo
+
+Marco	1.420	+16	1.436
+Luca	1.510	+14	1.524
+Andrea	1.270	+18	1.288
+
+
+Squadra B — Sconfitta
+
+Giocatore	Prima	Variazione	Dopo
+
+Paolo	1.490	−14	1.476
+Carlo	1.350	−11	1.339
+Matteo	1.560	−16	1.544
+
+
+Poi:
+
+[ CONFERMA E REGISTRA ]
+
+Questo permette di individuare subito eventuali errori nella selezione dei giocatori.
+
+
+---
+
+4. Aggiornamenti dopo la partita
+
+Dopo la registrazione l’app aggiorna automaticamente:
+
+Rk;
+
+numero partite;
+
+vittorie;
+
+sconfitte;
+
+percentuale vittorie;
+
+coefficiente K;
+
+fascia H/C/B/A;
+
+posizione nel ranking;
+
+record personale;
+
+eventuali record assoluti;
+
+storico Rk.
+
+
+Se un giocatore completa la sua ottava partita, passa automaticamente da qualificazione a classificato.
+
+
+---
+
+5. Classifica
+
+La schermata principale potrebbe essere:
+
+RANKING
+────────────────────────────
+#   Giocatore      Rk    Fascia
+1   Marco         1842     A
+2   Luca          1791     B
+3   Paolo         1654     B
+4   Andrea        1497     C
+5   Matteo        1388     C
+...
+
+Possibili filtri:
+
+Tutti | A | B | C | H
+
+I giocatori con meno di 8 partite possono essere mostrati separatamente sotto:
+
+In qualificazione
+
+
+---
+
+6. Scheda giocatore
+
+Toccando un giocatore si apre il suo profilo.
+
+Marco
+
+1.842 Rk — Fascia A
+
+Posizione: #1
+
+Poi:
+
+Statistica	Valore
+
+Partite	63
+Vittorie	39
+Sconfitte	24
+Vittorie %	61,9%
+Rk attuali	1.842
+Record Rk	1.876
+K attuale	16
+Serie vittorie	4
+
+
+E soprattutto un grafico:
+
+Rk
+1900 |                ╭──
+1800 |          ╭─────╯
+1700 |      ╭───╯
+1600 |  ╭───╯
+1500 |──╯
+     └──────────────────
+       Partite / tempo
+
+
+---
+
+7. Storico partite
+
+Ogni incontro deve essere consultabile.
+
+Esempio:
+
+12 agosto 2026 — 3 vs 3
+
+Squadra A — 2
+
+Marco
+Luca
+Andrea
+
+Squadra B — 1
+
+Paolo
+Carlo
+Matteo
+
+E sotto:
+
+Marco    +16 Rk
+Luca     +14 Rk
+Andrea   +18 Rk
+
+Paolo    -14 Rk
+Carlo    -11 Rk
+Matteo   -16 Rk
+
+L’app dovrebbe conservare sia gli Rk prima sia gli Rk dopo la partita.
+
+
+---
+
+8. Gestione giocatori
+
+Una sezione amministrativa dovrebbe permettere di:
+
+NUOVO GIOCATORE
+Nome: __________
+
+Rk iniziali: 1000
+Partite: 0
+Stato: Qualificazione
+
+[ CREA ]
+
+Inoltre:
+
+modifica nome;
+
+visualizza statistiche;
+
+eventuale sospensione del giocatore;
+
+correzione dati da amministratore.
+
+
+Non permetterei invece di modificare liberamente gli Rk senza lasciare traccia.
+
+
+---
+
+9. Correzione di una partita
+
+Questa funzione è importante.
+
+Se viene inserito un risultato sbagliato, non conviene semplicemente modificare gli Rk manualmente.
+
+L’app dovrebbe avere:
+
+ANNULLA PARTITA
+
+e poi:
+
+1. ripristinare gli Rk precedenti;
+
+
+2. annullare statistiche e risultato;
+
+
+3. ricalcolare eventuali partite successive.
+
+
+
+Questo perché una partita modifica il rating utilizzato per tutte quelle successive.
+
+
+---
+
+10. Record
+
+Una schermata separata potrebbe contenere:
+
+RECORD
+
+Rk più alto di sempre
+Marco — 1.934 Rk
+
+Più partite
+Luca — 147
+
+Più vittorie
+Paolo — 91
+
+Serie di vittorie
+Andrea — 11
+
+Più giorni al #1
+Marco — 286
+
+
+---
+
+11. Ruoli
+
+Per evitare problemi, prevederei almeno due livelli.
+
+Giocatore
+
+Può:
+
+vedere classifica;
+
+vedere statistiche;
+
+consultare partite;
+
+vedere profili.
+
+
+Amministratore
+
+Può inoltre:
+
+creare giocatori;
+
+inserire risultati;
+
+correggere partite;
+
+gestire il campionato.
+
+
+Eventualmente si può aggiungere un terzo ruolo:
+
+Arbitro / Organizzatore
+
+che può registrare partite ma non modificare le impostazioni generali.
+
+
+---
+
+12. Struttura dati minima
+
+Dietro l’app servono essenzialmente quattro archivi.
+
+GIOCATORI
+- ID
+- Nome
+- Rk
+- Partite
+- Vittorie
+- Sconfitte
+- Fascia
+- K
+- Record Rk
+
+PARTITE
+- ID partita
+- Data
+- 3v3 / 4v4
+- Squadra A
+- Squadra B
+- Risultato
+- Vincitore
+
+VARIAZIONI RK
+- ID partita
+- ID giocatore
+- Rk prima
+- ΔRk
+- Rk dopo
+- K utilizzato
+- Correttivo utilizzato
+
+UTENTI
+- Account
+- Giocatore associato
+- Ruolo
+
+In pratica
+
+La versione minima dell’app potrebbe avere solamente 5 schermate:
+
+HOME
+               │
+     ┌─────────┼─────────┐
+     ↓         ↓         ↓
+ NUOVA      RANKING   GIOCATORI
+ PARTITA
+     │
+     ↓
+ CALCOLO
+ AUTOMATICO
+     │
+     ↓
+ RISULTATO
+     │
+     ↓
+ SALVATAGGIO
+     │
+     ├────────→ STORICO
+     │
+     └────────→ CLASSIFICA
+
+Questa sarebbe già una prima versione completa e utilizzabile. Non serve inizialmente costruire chat, notifiche, tornei o altre funzioni: il cuore dell’app deve essere partita → calcolo Rk → storico → ranking.

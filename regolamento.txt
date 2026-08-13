@@ -1,0 +1,373 @@
+REGOLAMENTO UFFICIALE DEL CAMPIONATO
+
+1. Principi generali
+
+Il campionato è una competizione individuale basata su partite di pallavolo disputate su terreno in terra.
+
+Le partite possono essere giocate nelle seguenti modalità:
+
+- 3 contro 3
+- 4 contro 4
+
+Il campionato non prevede squadre permanenti. Ogni giocatore partecipa a titolo individuale e può cambiare compagni e avversari da una partita all'altra.
+
+La classifica generale è pertanto una classifica individuale, indipendente dalle formazioni con cui vengono disputati i singoli incontri.
+
+---
+
+2. I Rokkini (Rk)
+
+Il livello di ogni giocatore è rappresentato da un punteggio denominato Rokkini, abbreviato ufficialmente in Rk.
+
+Il sistema Rk è basato sul principio del rating Elo: il punteggio di un giocatore aumenta o diminuisce in funzione dei risultati ottenuti e della forza relativa dei giocatori coinvolti nell'incontro.
+
+Il numero di partite disputate non attribuisce direttamente Rk aggiuntivi. Un giocatore che disputa meno incontri non viene quindi penalizzato rispetto a un giocatore che gioca più frequentemente.
+
+La classifica generale è ordinata esclusivamente in base agli Rk posseduti.
+
+---
+
+3. Punteggio iniziale
+
+Ogni nuovo giocatore entra nel sistema con:
+
+1.000 Rk
+
+Il punteggio iniziale rappresenta esclusivamente il punto di partenza necessario per il funzionamento del sistema di calcolo.
+
+Da quel momento gli Rk aumentano o diminuiscono in funzione dei risultati delle partite ufficiali.
+
+---
+
+4. Partite di qualificazione
+
+Ogni nuovo giocatore deve disputare almeno 8 partite di qualificazione prima di entrare nella classifica ufficiale.
+
+Durante le partite di qualificazione:
+
+- gli Rk vengono calcolati normalmente;
+- il giocatore può guadagnare o perdere Rk;
+- le partite vengono registrate nello storico;
+- il giocatore non compare ancora nella classifica ufficiale.
+
+Al completamento dell'ottava partita, il giocatore entra automaticamente nel ranking con gli Rk raggiunti.
+
+Le partite disputate contro giocatori ancora in qualificazione sono considerate valide a tutti gli effetti.
+
+---
+
+5. Fasce di merito
+
+Ogni giocatore classificato appartiene a una delle quattro fasce di merito:
+
+Fascia| Rk| Livello
+H| fino a 1.199| Base
+C| 1.200 – 1.499| Intermedio
+B| 1.500 – 1.799| Avanzato
+A| 1.800 e oltre| Massimo
+
+La progressione delle fasce è:
+
+H → C → B → A
+
+La fascia viene determinata automaticamente dagli Rk posseduti.
+
+Il passaggio a una fascia superiore o inferiore non modifica gli Rk del giocatore.
+
+---
+
+6. Formazione delle squadre
+
+Ogni partita ufficiale viene disputata tra due formazioni temporanee composte dallo stesso numero di giocatori.
+
+Sono ammesse:
+
+- partite 3 vs 3;
+- partite 4 vs 4.
+
+Non esistono vincoli permanenti di appartenenza a una squadra.
+
+Giocatori appartenenti a fasce differenti possono giocare nella stessa formazione.
+
+---
+
+7. Sistema di calcolo degli Rk
+
+7.1 Valore della squadra
+
+Per determinare la forza teorica delle due squadre viene utilizzata la media degli Rk dei giocatori che le compongono.
+
+Per una squadra 3 vs 3:
+
+Rk squadra = (Rk₁ + Rk₂ + Rk₃) / 3
+
+Per una squadra 4 vs 4:
+
+Rk squadra = (Rk₁ + Rk₂ + Rk₃ + Rk₄) / 4
+
+La stessa procedura viene applicata a entrambe le squadre.
+
+---
+
+7.2 Probabilità teorica di vittoria
+
+Una volta determinato il valore medio delle due squadre, viene calcolata la probabilità teorica di vittoria secondo la formula Elo:
+
+P = 1 / [1 + 10^((Rk avversari − Rk propria squadra) / 400)]
+
+Il valore ottenuto è compreso tra 0 e 1.
+
+Una squadra con valore medio superiore avrà una probabilità teorica di vittoria maggiore.
+
+Una squadra con valore medio inferiore sarà invece considerata sfavorita.
+
+---
+
+7.3 Principio di assegnazione
+
+Il sistema premia maggiormente i risultati inattesi.
+
+Di conseguenza:
+
+- vincere contro una squadra più forte assegna più Rk;
+- vincere contro una squadra più debole assegna meno Rk;
+- perdere contro una squadra più forte comporta una perdita minore;
+- perdere contro una squadra più debole comporta una perdita maggiore.
+
+---
+
+8. Coefficiente K
+
+Ogni giocatore possiede un coefficiente K determinato dal numero complessivo di partite disputate.
+
+Partite disputate| K
+1–8| 40
+9–20| 32
+21–40| 24
+41 o più| 16
+
+Il coefficiente K permette ai nuovi giocatori di raggiungere rapidamente un punteggio rappresentativo del proprio livello.
+
+Con l'aumentare delle partite disputate, gli Rk diventano progressivamente più stabili.
+
+Questo sistema non premia chi gioca più frequentemente: rende semplicemente più stabile il rating dei giocatori sui quali esiste una maggiore quantità di risultati.
+
+---
+
+9. Variazione base degli Rk
+
+Per ogni giocatore viene inizialmente calcolata la variazione base:
+
+ΔRk = K × (S − P)
+
+dove:
+
+- K = coefficiente personale del giocatore;
+- P = probabilità teorica di vittoria della propria squadra;
+- S = 1 in caso di vittoria;
+- S = 0 in caso di sconfitta.
+
+Ogni giocatore della stessa squadra può quindi avere una variazione base differente qualora possieda un coefficiente K diverso.
+
+---
+
+10. Correttivo individuale
+
+Per rendere il ranking maggiormente rappresentativo del singolo giocatore viene applicato un correttivo basato sulla differenza tra gli Rk del giocatore e la media Rk della propria squadra.
+
+Il correttivo è:
+
+C = (Rk medio della squadra − Rk del giocatore) / 1.000
+
+Il valore di C non può comunque essere superiore a +0,20 né inferiore a −0,20.
+
+Il correttivo individuale è quindi limitato a un massimo del ±20%.
+
+---
+
+10.1 In caso di vittoria
+
+La variazione finale viene calcolata come:
+
+ΔRk finale = ΔRk × (1 + C)
+
+Di conseguenza, all'interno della stessa squadra:
+
+- un giocatore con Rk inferiori alla media riceve un guadagno leggermente maggiore;
+- un giocatore vicino alla media riceve il normale guadagno;
+- un giocatore con Rk superiori alla media riceve un guadagno leggermente minore.
+
+---
+
+10.2 In caso di sconfitta
+
+In caso di sconfitta viene applicata la formula:
+
+ΔRk finale = ΔRk × (1 − C)
+
+Poiché ΔRk è negativo:
+
+- il giocatore più debole rispetto alla media della propria squadra perde meno Rk;
+- il giocatore vicino alla media subisce la normale perdita;
+- il giocatore più forte rispetto alla media perde più Rk.
+
+---
+
+10.3 Esempio
+
+Una squadra è composta da:
+
+- Giocatore A: 1.600 Rk
+- Giocatore B: 1.400 Rk
+- Giocatore C: 1.200 Rk
+
+La media della squadra è:
+
+1.400 Rk
+
+Se la squadra ottiene una vittoria che produce una variazione base di circa +15 Rk, il correttivo individuale determina indicativamente:
+
+Giocatore| Rk iniziali| Posizione rispetto alla media| Rk guadagnati
+A| 1.600| +200| +12
+B| 1.400| media| +15
+C| 1.200| −200| +18
+
+In caso di sconfitta viene applicato il principio opposto: il giocatore più forte perde leggermente di più e quello più debole leggermente di meno.
+
+---
+
+11. Arrotondamento
+
+La variazione finale viene arrotondata al Rk intero più vicino.
+
+Esempio:
+
+- +15,36 → +15 Rk
+- +18,72 → +19 Rk
+- −7,41 → −7 Rk
+
+Gli Rk ufficiali vengono pertanto sempre espressi mediante numeri interi.
+
+---
+
+12. Risultato della partita
+
+Le partite vengono disputate al meglio dei 3 set.
+
+Vince l'incontro la squadra che conquista per prima 2 set.
+
+I primi due set vengono disputati a 21 punti, con almeno 2 punti di vantaggio.
+
+In caso di parità per 1–1, viene disputato un terzo set a 15 punti, sempre con almeno 2 punti di vantaggio.
+
+Ai fini del calcolo degli Rk conta la vittoria o la sconfitta dell'incontro.
+
+Il punteggio dei singoli set e il risultato di 2–0 o 2–1 non modificano il calcolo degli Rk.
+
+---
+
+13. Classifica generale
+
+La classifica generale è individuale.
+
+Per ogni giocatore vengono registrati almeno:
+
+1. posizione nel ranking;
+2. nome;
+3. Rk attuali;
+4. fascia di appartenenza;
+5. partite disputate;
+6. vittorie;
+7. sconfitte;
+8. percentuale di vittorie.
+
+La posizione è determinata esclusivamente dagli Rk attuali.
+
+Il numero di partite disputate, la percentuale di vittorie e le altre statistiche hanno carattere informativo e non attribuiscono direttamente alcun vantaggio in classifica.
+
+---
+
+14. Campionato continuo
+
+Il campionato non è suddiviso in stagioni.
+
+Il ranking è continuo e permanente.
+
+Dopo ogni partita ufficiale vengono aggiornati:
+
+- gli Rk dei giocatori;
+- il numero di partite disputate;
+- vittorie e sconfitte;
+- la fascia di appartenenza;
+- la posizione nella classifica generale.
+
+Gli Rk non vengono azzerati periodicamente e non è prevista alcuna penalizzazione per inattività.
+
+Un giocatore mantiene pertanto il proprio punteggio anche qualora non disputi partite per un periodo prolungato.
+
+---
+
+15. Numero 1 del Ranking
+
+Il giocatore classificato con il maggior numero di Rk è definito:
+
+N. 1 del Ranking
+
+La posizione può cambiare dopo qualsiasi partita ufficiale.
+
+Il ranking rappresenta quindi in ogni momento la graduatoria corrente dei giocatori partecipanti al campionato.
+
+---
+
+16. Record e statistiche storiche
+
+Il sistema può conservare, oltre alla classifica corrente, uno storico permanente dei risultati.
+
+Possono essere registrati in particolare:
+
+- massimo numero di Rk raggiunto;
+- record personale di Rk;
+- massimo storico assoluto di Rk;
+- numero complessivo di partite;
+- numero complessivo di vittorie;
+- percentuale di vittorie;
+- serie più lunga di vittorie consecutive;
+- numero complessivo di giorni trascorsi al N. 1;
+- maggior numero di giorni consecutivi al N. 1;
+- storico dei passaggi di fascia;
+- andamento degli Rk nel tempo.
+
+---
+
+17. Registrazione delle partite
+
+Ogni partita ufficiale deve essere registrata nel sistema indicando almeno:
+
+- data;
+- modalità 3 vs 3 o 4 vs 4;
+- giocatori della Squadra 1;
+- giocatori della Squadra 2;
+- risultato finale;
+- squadra vincitrice.
+
+Il sistema di gestione calcola automaticamente:
+
+media Rk delle squadre → probabilità teorica → coefficiente K individuale → variazione base → correttivo individuale → nuovi Rk → aggiornamento statistiche → fascia → classifica.
+
+Lo storico di una partita registrata deve conservare gli Rk posseduti dai giocatori prima dell'incontro, in modo che il risultato possa essere verificato o ricalcolato successivamente.
+
+---
+
+18. Principio fondamentale del Ranking Rk
+
+Il sistema Rk ha lo scopo di rappresentare il livello dimostrato dai singoli giocatori nel corso delle partite, indipendentemente dal numero di incontri disputati e dalla presenza di squadre permanenti.
+
+Il sistema si basa pertanto su quattro principi:
+
+1. vincere aumenta gli Rk e perdere li diminuisce;
+2. la forza degli avversari determina quanto vale il risultato;
+3. il livello individuale rispetto ai propri compagni produce un correttivo limitato;
+4. il numero di partite determina la stabilità del rating, ma non attribuisce direttamente punti o vantaggi in classifica.
+
+Il ranking Rk costituisce la graduatoria ufficiale e permanente del campionato.
+
