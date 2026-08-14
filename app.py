@@ -25,7 +25,6 @@ sezioni = {"Rokkini": pagine_pubbliche, "Account": pagine_account}
 if ruolo == "super_admin":
     sezioni["Amministrazione"] = [
         st.Page("app_pages/9_sessione_di_gioco.py", title="Sessione di gioco", icon="🎮"),
-        st.Page("app_pages/5_nuova_partita.py", title="Nuova partita", icon="🆕"),
         st.Page("app_pages/6_correggi_partita.py", title="Correggi/annulla partita", icon="✏️"),
         st.Page("app_pages/7_gestione_giocatori.py", title="Gestione giocatori", icon="🧑‍🤝‍🧑"),
         st.Page("app_pages/8_gestione_utenti.py", title="Gestione utenti", icon="🔐"),

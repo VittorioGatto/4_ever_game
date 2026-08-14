@@ -127,6 +127,31 @@ def fetch_match_history_sessione(conn, sessione_id: int) -> list[dict[str, Any]]
     return _costruisci_cronologia(conn, db.fetch_partite_di_sessione(conn, sessione_id))
 
 
+def fetch_classifica_sessione(conn, sessione_id: int) -> list[dict[str, Any]]:
+    """Somma i delta Rk per giocatore sulle partite non annullate di questa
+    sessione, unita al Rk totale attuale di ciascuno. Ordinata per Rk
+    guadagnati nella sessione, decrescente."""
+    partite = db.fetch_partite_di_sessione(conn, sessione_id)  # gia' esclude le annullate
+    giocatori_per_id = {g["id"]: g for g in db.fetch_giocatori(conn)}
+    somma_per_giocatore: dict[int, int] = {}
+    for partita in partite:
+        for v in db.fetch_variazioni_per_partita(conn, partita["id"]):
+            somma_per_giocatore[v["giocatore_id"]] = (
+                somma_per_giocatore.get(v["giocatore_id"], 0) + v["delta"]
+            )
+    classifica = [
+        {
+            "nome": giocatori_per_id[gid]["nome"],
+            "rk_sessione": somma,
+            "rk_totale": giocatori_per_id[gid]["rk_attuale"],
+        }
+        for gid, somma in somma_per_giocatore.items()
+        if gid in giocatori_per_id
+    ]
+    classifica.sort(key=lambda r: r["rk_sessione"], reverse=True)
+    return classifica
+
+
 def fetch_records(conn) -> dict[str, Any]:
     giocatori = db.fetch_giocatori(conn)
     giorni_al_numero_1 = {

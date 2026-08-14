@@ -3,7 +3,12 @@ from datetime import date
 import streamlit as st
 
 from rokkini import auth, db, stats, ui_common
-from rokkini.matchmaking import GiocatorePerMatchmaking, genera_combinazioni_bilanciate
+from rokkini.matchmaking import (
+    GiocatorePerMatchmaking,
+    genera_combinazioni_bilanciate,
+    genera_fixture_girone,
+    genera_squadre_multiple,
+)
 
 conn = db.get_connection()
 auth.require_role(conn, "super_admin")
@@ -31,7 +36,8 @@ if sessione is None:
     st.caption(
         "Nessuna sessione in corso. Seleziona chi c'è oggi e premi 'Inizia sessione': da quel "
         "momento sarà visibile pubblicamente (senza bisogno di login) nella pagina "
-        "'Sessioni attive', e potrai registrare più partite di fila sullo stesso gruppo."
+        "'Sessioni attive', e potrai registrare più partite di fila sullo stesso gruppo — "
+        "una partita semplice o un torneo a girone."
     )
     pool_iniziale = st.multiselect(
         "Giocatori presenti oggi",
@@ -73,101 +79,237 @@ if len(pool) < 6:
     st.stop()
 
 st.divider()
-modalita = st.radio("Modalità", ["3v3", "4v4"], horizontal=True, key="sessione_modalita")
-dimensione = 3 if modalita == "3v3" else 4
+modo = st.radio("Modalità sessione", ["Partita semplice", "Torneo"], horizontal=True, key="sessione_modo")
 
-chi_gioca = st.multiselect(
-    "Chi gioca questa partita (dal gruppo presente)",
-    options=pool,
-    format_func=_etichetta,
-    key="sessione_chi_gioca",
-)
+# ==============================================================================
+# PARTITA SEMPLICE
+# ==============================================================================
 
-# se cambia il gruppo che gioca, le proposte e le squadre gia' scelte non sono
-# piu' valide (potrebbero riferirsi a giocatori non piu' selezionati)
-if st.session_state.get("sessione_chi_gioca_precedente") != chi_gioca:
-    st.session_state.pop("sessione_proposte", None)
-    st.session_state.pop("sessione_proposta_applicata", None)
-    st.session_state["sessione_squadra_a"] = []
-    st.session_state["sessione_squadra_b"] = []
-    st.session_state["sessione_chi_gioca_precedente"] = chi_gioca
+if modo == "Partita semplice":
+    modalita = st.radio("Modalità", ["3v3", "4v4"], horizontal=True, key="sessione_modalita")
+    dimensione = 3 if modalita == "3v3" else 4
 
-if len(chi_gioca) != dimensione * 2:
-    st.info(f"Seleziona esattamente {dimensione * 2} giocatori per generare le squadre.")
-    st.stop()
-
-if st.button("🎲 Suggerisci squadre bilanciate"):
-    candidati = [
-        GiocatorePerMatchmaking(gid, giocatori_per_id[gid]["rk_attuale"]) for gid in chi_gioca
+    # poda difensiva: se il pool si e' ristretto, i valori gia' selezionati che
+    # non ci sono piu' romperebbero il multiselect (il suo valore deve restare
+    # un sottoinsieme delle opzioni)
+    st.session_state["sessione_chi_gioca"] = [
+        gid for gid in st.session_state.get("sessione_chi_gioca", []) if gid in pool
     ]
-    st.session_state["sessione_proposte"] = genera_combinazioni_bilanciate(
-        candidati, dimensione, n_proposte=3
-    )
-    st.session_state.pop("sessione_proposta_applicata", None)
 
-proposte = st.session_state.get("sessione_proposte")
-if proposte:
-    etichette = [
-        f"Proposta {i + 1} — media {p.media_a:.0f} vs {p.media_b:.0f} (Δ{p.differenza:.0f}) · "
-        f"A: {', '.join(nomi_per_id[g] for g in p.squadra_a)} · "
-        f"B: {', '.join(nomi_per_id[g] for g in p.squadra_b)}"
-        for i, p in enumerate(proposte)
-    ]
-    scelta_idx = st.radio(
-        "Proposte bilanciate", range(len(proposte)), format_func=lambda i: etichette[i]
-    )
-    if st.session_state.get("sessione_proposta_applicata") != scelta_idx:
-        st.session_state["sessione_squadra_a"] = proposte[scelta_idx].squadra_a
-        st.session_state["sessione_squadra_b"] = proposte[scelta_idx].squadra_b
-        st.session_state["sessione_proposta_applicata"] = scelta_idx
-
-st.caption("Puoi modificare le squadre a mano prima di confermare (es. se qualcuno preferisce un'altra formazione).")
-col_a, col_b = st.columns(2)
-with col_a:
-    st.markdown("**Squadra A**")
-    squadra_a = st.multiselect(
-        "Squadra A",
-        options=chi_gioca,
+    chi_gioca = st.multiselect(
+        "Chi gioca questa partita (dal gruppo presente)",
+        options=pool,
         format_func=_etichetta,
-        key="sessione_squadra_a",
-        label_visibility="collapsed",
-    )
-with col_b:
-    st.markdown("**Squadra B**")
-    squadra_b = st.multiselect(
-        "Squadra B",
-        options=chi_gioca,
-        format_func=_etichetta,
-        key="sessione_squadra_b",
-        label_visibility="collapsed",
+        key="sessione_chi_gioca",
     )
 
-data_partita = st.date_input("Data partita", value=date.today(), key="sessione_data_partita")
-risultato_set = st.radio(
-    "Risultato set (Squadra A - Squadra B)",
-    ["2-0", "2-1", "1-2", "0-2"],
-    horizontal=True,
-    key="sessione_risultato_set",
-)
-calcola = st.button("Calcola anteprima", key="sessione_calcola_anteprima")
+    # se cambia il gruppo che gioca, le proposte e le squadre gia' scelte non
+    # sono piu' valide (potrebbero riferirsi a giocatori non piu' selezionati)
+    if st.session_state.get("sessione_chi_gioca_precedente") != chi_gioca:
+        st.session_state.pop("sessione_proposte", None)
+        st.session_state.pop("sessione_proposta_applicata", None)
+        st.session_state["sessione_squadra_a"] = []
+        st.session_state["sessione_squadra_b"] = []
+        st.session_state["sessione_chi_gioca_precedente"] = chi_gioca
 
-errori = ui_common.valida_squadre_ui(modalita, squadra_a, squadra_b) if calcola else []
-for e in errori:
-    st.error(e)
+    if len(chi_gioca) != dimensione * 2:
+        st.info(f"Seleziona esattamente {dimensione * 2} giocatori per generare le squadre.")
+        st.stop()
 
-ui_common.gestisci_anteprima_e_conferma(
-    conn,
-    calcola=calcola and not errori,
-    nomi_per_id=nomi_per_id,
-    giocatori_per_id=giocatori_per_id,
-    data_partita=data_partita.isoformat(),
-    modalita=modalita,
-    risultato_set=risultato_set,
-    squadra_a=squadra_a,
-    squadra_b=squadra_b,
-    session_key="sessione_anteprima_partita",
-    sessione_id=sessione_id,
-)
+    if st.button("🎲 Suggerisci squadre bilanciate"):
+        candidati = [
+            GiocatorePerMatchmaking(gid, giocatori_per_id[gid]["rk_attuale"]) for gid in chi_gioca
+        ]
+        st.session_state["sessione_proposte"] = genera_combinazioni_bilanciate(
+            candidati, dimensione, n_proposte=3
+        )
+        st.session_state.pop("sessione_proposta_applicata", None)
+
+    proposte = st.session_state.get("sessione_proposte")
+    if proposte:
+        etichette = [
+            f"Proposta {i + 1} — media {p.media_a:.0f} vs {p.media_b:.0f} (Δ{p.differenza:.0f}) · "
+            f"A: {', '.join(nomi_per_id[g] for g in p.squadra_a)} · "
+            f"B: {', '.join(nomi_per_id[g] for g in p.squadra_b)}"
+            for i, p in enumerate(proposte)
+        ]
+        scelta_idx = st.radio(
+            "Proposte bilanciate", range(len(proposte)), format_func=lambda i: etichette[i]
+        )
+        if st.session_state.get("sessione_proposta_applicata") != scelta_idx:
+            st.session_state["sessione_squadra_a"] = proposte[scelta_idx].squadra_a
+            st.session_state["sessione_squadra_b"] = proposte[scelta_idx].squadra_b
+            st.session_state["sessione_proposta_applicata"] = scelta_idx
+
+    st.caption("Puoi modificare le squadre a mano prima di confermare (es. se qualcuno preferisce un'altra formazione).")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("**Squadra A**")
+        opzioni_a = [
+            gid for gid in chi_gioca if gid not in st.session_state.get("sessione_squadra_b", [])
+        ]
+        squadra_a = st.multiselect(
+            "Squadra A",
+            options=opzioni_a,
+            format_func=_etichetta,
+            key="sessione_squadra_a",
+            label_visibility="collapsed",
+        )
+    with col_b:
+        st.markdown("**Squadra B**")
+        opzioni_b = [gid for gid in chi_gioca if gid not in squadra_a]
+        squadra_b = st.multiselect(
+            "Squadra B",
+            options=opzioni_b,
+            format_func=_etichetta,
+            key="sessione_squadra_b",
+            label_visibility="collapsed",
+        )
+
+    data_partita = st.date_input("Data partita", value=date.today(), key="sessione_data_partita")
+
+    errori = ui_common.valida_squadre_ui(modalita, squadra_a, squadra_b)
+    for e in errori:
+        st.error(e)
+
+    if not errori:
+        esito = ui_common.registra_set_live("sessione_set_live")
+        if esito:
+            risultato_set, _ = esito
+            ui_common.gestisci_anteprima_e_conferma(
+                conn,
+                calcola=True,
+                nomi_per_id=nomi_per_id,
+                giocatori_per_id=giocatori_per_id,
+                data_partita=data_partita.isoformat(),
+                modalita=modalita,
+                risultato_set=risultato_set,
+                squadra_a=squadra_a,
+                squadra_b=squadra_b,
+                session_key="sessione_anteprima_partita",
+                sessione_id=sessione_id,
+                set_live_key="sessione_set_live",
+            )
+
+# ==============================================================================
+# TORNEO (girone all'italiana)
+# ==============================================================================
+
+else:
+    modalita_torneo = st.radio("Modalità", ["3v3", "4v4"], horizontal=True, key="torneo_modalita")
+    dimensione_torneo = 3 if modalita_torneo == "3v3" else 4
+
+    if len(pool) < dimensione_torneo * 2:
+        st.warning(
+            f"Servono almeno {dimensione_torneo * 2} giocatori presenti per un torneo in "
+            f"modalità {modalita_torneo}."
+        )
+        st.stop()
+
+    if st.button("🎲 Genera/rigenera squadre del torneo"):
+        candidati = [
+            GiocatorePerMatchmaking(gid, giocatori_per_id[gid]["rk_attuale"]) for gid in pool
+        ]
+        squadre_generate = genera_squadre_multiple(candidati, dimensione_torneo)
+        st.session_state["torneo_squadre"] = squadre_generate
+        st.session_state["torneo_fixture"] = genera_fixture_girone(len(squadre_generate))
+        st.session_state["torneo_giocate"] = set()
+        st.session_state["torneo_dimensione"] = dimensione_torneo
+        st.rerun()
+
+    squadre = st.session_state.get("torneo_squadre")
+    if not squadre:
+        st.info("Genera le squadre per iniziare il torneo.")
+        st.stop()
+
+    dimensione_corrente = st.session_state["torneo_dimensione"]
+    esclusi = len(pool) - len(squadre) * dimensione_corrente
+
+    st.subheader("Squadre del girone")
+    for i, squadra in enumerate(squadre):
+        media = sum(giocatori_per_id[gid]["rk_attuale"] for gid in squadra) / len(squadra)
+        st.write(f"**Squadra {i + 1}** (media {media:.0f}): {', '.join(nomi_per_id[gid] for gid in squadra)}")
+    if esclusi > 0:
+        st.caption(
+            f"{esclusi} giocatori del gruppo presente restano fuori da questo girone "
+            f"(il totale non è multiplo di {dimensione_corrente})."
+        )
+
+    fixture = st.session_state["torneo_fixture"]
+    giocate = st.session_state["torneo_giocate"]
+    st.write(f"Partite del girone: {len(giocate)}/{len(fixture)} giocate")
+
+    rimanenti_idx = [i for i in range(len(fixture)) if i not in giocate]
+    if not rimanenti_idx:
+        st.success("🏆 Girone completato! Tutte le partite sono state giocate.")
+        st.stop()
+
+    prossima_idx = rimanenti_idx[0]
+    squadra_1_idx, squadra_2_idx = fixture[prossima_idx]
+    st.divider()
+    st.subheader(f"Prossima partita: Squadra {squadra_1_idx + 1} vs Squadra {squadra_2_idx + 1}")
+
+    key_a, key_b = f"torneo_squadra_a_{prossima_idx}", f"torneo_squadra_b_{prossima_idx}"
+    if key_a not in st.session_state:
+        st.session_state[key_a] = [gid for gid in squadre[squadra_1_idx] if gid in pool]
+        st.session_state[key_b] = [gid for gid in squadre[squadra_2_idx] if gid in pool]
+    # poda difensiva: se il pool e' cambiato dopo aver generato le squadre, un
+    # giocatore preselezionato potrebbe non essere piu' tra le opzioni
+    st.session_state[key_a] = [gid for gid in st.session_state[key_a] if gid in pool]
+    st.session_state[key_b] = [gid for gid in st.session_state[key_b] if gid in pool]
+
+    st.caption("Puoi modificare le squadre di questa partita a mano (es. se qualcuno è andato via).")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("**Squadra A**")
+        opzioni_a = [gid for gid in pool if gid not in st.session_state.get(key_b, [])]
+        squadra_a = st.multiselect(
+            "Squadra A", options=opzioni_a, format_func=_etichetta, key=key_a,
+            label_visibility="collapsed",
+        )
+    with col_b:
+        st.markdown("**Squadra B**")
+        opzioni_b = [gid for gid in pool if gid not in squadra_a]
+        squadra_b = st.multiselect(
+            "Squadra B", options=opzioni_b, format_func=_etichetta, key=key_b,
+            label_visibility="collapsed",
+        )
+
+    data_partita_torneo = st.date_input(
+        "Data partita", value=date.today(), key=f"torneo_data_{prossima_idx}"
+    )
+
+    errori = ui_common.valida_squadre_ui(modalita_torneo, squadra_a, squadra_b)
+    for e in errori:
+        st.error(e)
+
+    if not errori:
+
+        def _segna_fixture_giocata(idx: int = prossima_idx) -> None:
+            st.session_state["torneo_giocate"].add(idx)
+
+        esito = ui_common.registra_set_live(f"torneo_set_live_{prossima_idx}")
+        if esito:
+            risultato_set, _ = esito
+            ui_common.gestisci_anteprima_e_conferma(
+                conn,
+                calcola=True,
+                nomi_per_id=nomi_per_id,
+                giocatori_per_id=giocatori_per_id,
+                data_partita=data_partita_torneo.isoformat(),
+                modalita=modalita_torneo,
+                risultato_set=risultato_set,
+                squadra_a=squadra_a,
+                squadra_b=squadra_b,
+                session_key=f"torneo_anteprima_{prossima_idx}",
+                sessione_id=sessione_id,
+                set_live_key=f"torneo_set_live_{prossima_idx}",
+                on_success=_segna_fixture_giocata,
+            )
+
+# ==============================================================================
+# STORICO DELLA SESSIONE
+# ==============================================================================
 
 st.divider()
 cronologia_sessione = stats.fetch_match_history_sessione(conn, sessione_id)

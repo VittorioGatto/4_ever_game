@@ -68,3 +68,43 @@ def genera_combinazioni_bilanciate(
 
     proposte.sort(key=lambda p: p.differenza)
     return proposte[:n_proposte]
+
+
+def genera_squadre_multiple(
+    giocatori: list[GiocatorePerMatchmaking], dimensione: int
+) -> list[list[int]]:
+    """Divide i giocatori in squadre da `dimensione` con un draft a
+    serpentina: ordina per Rk decrescente e distribuisce un giro alla volta
+    nell'ordine 1,2,...,N,N,...,2,1 (alternando direzione). Bilancia bene
+    senza l'esplosione combinatoria dell'enumerazione esaustiva usata da
+    genera_combinazioni_bilanciate, che non scala oltre 2 squadre.
+
+    Se il numero di giocatori non è multiplo di `dimensione`, i più deboli in
+    eccesso restano fuori da questo turno (non entrano in nessuna squadra).
+    Richiede almeno 2*dimensione giocatori (altrimenti non si formano nemmeno
+    due squadre)."""
+    n_squadre = len(giocatori) // dimensione
+    if n_squadre < 2:
+        raise ValueError(
+            f"Servono almeno {dimensione * 2} giocatori per formare 2 squadre da "
+            f"{dimensione} (ricevuti {len(giocatori)})"
+        )
+
+    ordinati = sorted(giocatori, key=lambda g: g.rk_attuale, reverse=True)
+    utilizzati = ordinati[: n_squadre * dimensione]
+
+    squadre: list[list[int]] = [[] for _ in range(n_squadre)]
+    ordine = list(range(n_squadre))
+    for giro in range(dimensione):
+        sequenza = ordine if giro % 2 == 0 else list(reversed(ordine))
+        for posizione, squadra_idx in enumerate(sequenza):
+            giocatore = utilizzati[giro * n_squadre + posizione]
+            squadre[squadra_idx].append(giocatore.player_id)
+    return squadre
+
+
+def genera_fixture_girone(n_squadre: int) -> list[tuple[int, int]]:
+    """Tutte le coppie possibili tra `n_squadre` squadre (indicizzate da 0):
+    un girone all'italiana a gruppo unico, ogni squadra incontra ogni altra
+    esattamente una volta."""
+    return list(combinations(range(n_squadre), 2))

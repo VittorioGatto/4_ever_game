@@ -14,8 +14,21 @@ if sessione is None:
 st.success(f"Sessione in corso, iniziata alle {sessione['iniziata_at']}.")
 
 partecipanti = db.fetch_partecipanti_sessione(conn, sessione["id"])
-st.subheader(f"Presenti ({len(partecipanti)})")
-st.write(", ".join(g["nome"] for g in partecipanti))
+classifica_sessione = {
+    r["nome"]: r for r in stats.fetch_classifica_sessione(conn, sessione["id"])
+}
+
+st.subheader(f"Classifica della sessione — presenti ({len(partecipanti)})")
+righe = [
+    {
+        "Giocatore": g["nome"],
+        "Rk guadagnati oggi": classifica_sessione.get(g["nome"], {}).get("rk_sessione", 0),
+        "Rk totale attuale": g["rk_attuale"],
+    }
+    for g in partecipanti
+]
+righe.sort(key=lambda r: r["Rk guadagnati oggi"], reverse=True)
+st.dataframe(righe, hide_index=True, use_container_width=True)
 
 st.divider()
 cronologia = stats.fetch_match_history_sessione(conn, sessione["id"])

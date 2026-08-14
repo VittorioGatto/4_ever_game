@@ -1,6 +1,8 @@
 """Blocchi di UI Streamlit condivisi tra le pagine che registrano una
-partita (Nuova partita e Sessione di gioco), per non duplicare la logica di
-validazione/anteprima/conferma."""
+partita (partita semplice e ogni incontro di un torneo, dentro Sessione di
+gioco), per non duplicare la logica di validazione/punteggio/conferma."""
+
+from collections.abc import Callable
 
 import streamlit as st
 
@@ -23,6 +25,45 @@ def valida_squadre_ui(modalita: str, squadra_a: list[int], squadra_b: list[int])
     return errori
 
 
+def registra_set_live(session_key: str) -> tuple[str, str] | None:
+    """Due bottoni "Set vinto da A/B" con contatore visibile e un bottone
+    "Annulla ultimo set" per correggere un click sbagliato. Una volta che una
+    squadra arriva a 2 set vinti, i bottoni di incremento si disabilitano
+    (serve annullare per proseguire, cosi' il punteggio resta sempre uno tra
+    2-0/2-1/1-2/0-2). Ritorna (risultato_set, squadra_vincente) a partita
+    conclusa, altrimenti None."""
+    stato = st.session_state.setdefault(session_key, {"a": 0, "b": 0, "storico": []})
+    conclusa = stato["a"] == 2 or stato["b"] == 2
+
+    st.markdown(f"**Set — Squadra A {stato['a']} : {stato['b']} Squadra B**")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("🏐 Set vinto da A", key=f"{session_key}_a", disabled=conclusa):
+            stato["a"] += 1
+            stato["storico"].append("A")
+            st.rerun()
+    with col2:
+        if st.button("🏐 Set vinto da B", key=f"{session_key}_b", disabled=conclusa):
+            stato["b"] += 1
+            stato["storico"].append("B")
+            st.rerun()
+    with col3:
+        if st.button(
+            "↩️ Annulla ultimo set", key=f"{session_key}_undo", disabled=not stato["storico"]
+        ):
+            ultimo = stato["storico"].pop()
+            stato["a" if ultimo == "A" else "b"] -= 1
+            st.rerun()
+
+    if conclusa:
+        return f"{stato['a']}-{stato['b']}", ("A" if stato["a"] == 2 else "B")
+    return None
+
+
+def reset_set_live(session_key: str) -> None:
+    st.session_state.pop(session_key, None)
+
+
 def gestisci_anteprima_e_conferma(
     conn,
     calcola: bool,
@@ -35,10 +76,18 @@ def gestisci_anteprima_e_conferma(
     squadra_b: list[int],
     session_key: str = "anteprima_partita",
     sessione_id: int | None = None,
+    set_live_key: str | None = None,
+    on_success: Callable[[], None] | None = None,
 ) -> None:
     """Se `calcola` è True (bottone premuto in questo run), calcola i delta
     e li salva in sessione. In ogni caso, se una anteprima è presente in
-    sessione, la mostra con il bottone di conferma che registra la partita."""
+    sessione, la mostra con il bottone di conferma che registra la partita.
+
+    `set_live_key`, se dato, viene ripulito con reset_set_live dopo la
+    conferma (cosi' il contatore set riparte da 0-0 per la partita
+    successiva). `on_success`, se dato, viene richiamato subito dopo la
+    registrazione riuscita, prima del rerun: usato dal torneo per segnare la
+    fixture corrente come giocata."""
     if calcola:
         squadra_vincente = "A" if risultato_set in ("2-0", "2-1") else "B"
         team_a = [
@@ -105,5 +154,9 @@ def gestisci_anteprima_e_conferma(
             sessione_id=sessione_id,
         )
         del st.session_state[session_key]
+        if set_live_key:
+            reset_set_live(set_live_key)
+        if on_success:
+            on_success()
         st.success("Partita registrata.")
         st.rerun()
