@@ -1,11 +1,10 @@
-"""Crea un utente admin/super_admin (bootstrap: serve per creare il primo
+"""Crea un utente super_admin (bootstrap: serve per creare il primo
 super_admin, dato che la pagina di gestione utenti dell'app richiede gia'
 un login da super_admin).
 
 Uso:
-    uv run python scripts/create_admin.py --username mario --password ... \\
-        --nome "Mario Rossi" --ruolo super_admin
-    uv run python scripts/create_admin.py --turso --username ... --password ... --ruolo admin
+    uv run python scripts/create_admin.py --username mario --password ... --nome "Mario Rossi"
+    uv run python scripts/create_admin.py --turso --username ... --password ... --nome ...
 """
 
 import argparse
@@ -17,7 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rokkini import auth, db
 
-SECRETS_PATH = Path(__file__).parent.parent / ".streamlit" / "secrets.toml"
+# File separato da .streamlit/secrets.toml, vedi il commento in scripts/init_db.py.
+SECRETS_PATH = Path(__file__).parent.parent / ".streamlit" / "secrets.turso-provisioning.toml"
 
 
 def main() -> None:
@@ -27,7 +27,6 @@ def main() -> None:
     parser.add_argument("--password", required=True)
     parser.add_argument("--nome", required=True, help="Nome visualizzato")
     parser.add_argument("--email", default=None)
-    parser.add_argument("--ruolo", choices=["admin", "super_admin"], default="super_admin")
     args = parser.parse_args()
 
     if args.turso:
@@ -46,10 +45,9 @@ def main() -> None:
         username=args.username,
         nome_visualizzato=args.nome,
         password_hash=password_hash,
-        ruolo=args.ruolo,
         email=args.email,
     )
-    print(f"Utente '{args.username}' creato (id={utente_id}, ruolo={args.ruolo}).")
+    print(f"Utente '{args.username}' creato (id={utente_id}, ruolo=super_admin).")
 
 
 if __name__ == "__main__":

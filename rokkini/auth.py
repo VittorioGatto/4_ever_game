@@ -5,8 +5,6 @@ import streamlit_authenticator as stauth
 
 from rokkini import db
 
-RUOLI_VALIDI = ("admin", "super_admin")
-
 
 def hash_password(password: str) -> str:
     return stauth.Hasher().hash(password)

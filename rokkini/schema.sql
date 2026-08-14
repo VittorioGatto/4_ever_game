@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS utenti (
     nome_visualizzato TEXT NOT NULL,
     email             TEXT,
     password_hash     TEXT NOT NULL,
-    ruolo             TEXT NOT NULL CHECK (ruolo IN ('admin', 'super_admin')),
+    ruolo             TEXT NOT NULL CHECK (ruolo = 'super_admin'),
     giocatore_id      INTEGER REFERENCES giocatori (id),
     attivo            INTEGER NOT NULL DEFAULT 1,
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))

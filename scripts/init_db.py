@@ -2,7 +2,7 @@
 
 Uso:
     uv run python scripts/init_db.py              # locale, data/local.db
-    uv run python scripts/init_db.py --turso       # legge .streamlit/secrets.toml
+    uv run python scripts/init_db.py --turso       # legge .streamlit/secrets.turso-provisioning.toml
 """
 
 import argparse
@@ -14,7 +14,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rokkini import db
 
-SECRETS_PATH = Path(__file__).parent.parent / ".streamlit" / "secrets.toml"
+# File separato da .streamlit/secrets.toml (quello letto automaticamente da
+# st.secrets quando l'app gira in locale): se le credenziali Turso finissero
+# li', un semplice `streamlit run app.py` in locale si connetterebbe al
+# database di produzione invece che al file locale.
+SECRETS_PATH = Path(__file__).parent.parent / ".streamlit" / "secrets.turso-provisioning.toml"
 
 
 def main() -> None:

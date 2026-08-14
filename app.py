@@ -1,8 +1,9 @@
 import streamlit as st
 
-from rokkini import auth, db
+from rokkini import auth, db, theme
 
 st.set_page_config(page_title="Rokkini", page_icon="🏐", layout="wide")
+theme.inject_custom_css()
 
 conn = db.get_connection()
 authenticator = auth.build_authenticator(conn)
@@ -20,16 +21,14 @@ pagine_account = [st.Page("app_pages/0_login.py", title="Account", icon="🔑")]
 
 sezioni = {"Rokkini": pagine_pubbliche, "Account": pagine_account}
 
-if ruolo in ("admin", "super_admin"):
-    sezioni["Amministrazione"] = [
-        st.Page("app_pages/5_nuova_partita.py", title="Nuova partita", icon="🆕"),
-    ]
-
 if ruolo == "super_admin":
-    sezioni["Amministrazione"] += [
+    sezioni["Amministrazione"] = [
+        st.Page("app_pages/9_sessione_di_gioco.py", title="Sessione di gioco", icon="🎮"),
+        st.Page("app_pages/5_nuova_partita.py", title="Nuova partita", icon="🆕"),
         st.Page("app_pages/6_correggi_partita.py", title="Correggi/annulla partita", icon="✏️"),
         st.Page("app_pages/7_gestione_giocatori.py", title="Gestione giocatori", icon="🧑‍🤝‍🧑"),
         st.Page("app_pages/8_gestione_utenti.py", title="Gestione utenti", icon="🔐"),
+        st.Page("app_pages/10_backup.py", title="Backup dati", icon="💾"),
     ]
 
 navigazione = st.navigation(sezioni)

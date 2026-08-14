@@ -16,7 +16,6 @@ with st.form("nuovo_utente_form", clear_on_submit=True):
     nome_visualizzato = st.text_input("Nome visualizzato")
     email = st.text_input("Email (opzionale)")
     password = st.text_input("Password", type="password")
-    ruolo = st.radio("Ruolo", ["admin", "super_admin"], horizontal=True)
     giocatore_collegato = st.selectbox(
         "Collega a un giocatore (opzionale)",
         options=[None, *nomi_giocatore_per_id.keys()],
@@ -44,11 +43,10 @@ with st.form("nuovo_utente_form", clear_on_submit=True):
                 username=username.strip(),
                 nome_visualizzato=nome_visualizzato.strip(),
                 password_hash=auth.hash_password(password),
-                ruolo=ruolo,
                 email=email.strip() or None,
                 giocatore_id=giocatore_collegato,
             )
-            st.success(f"Utente '{username.strip()}' creato (ruolo: {ruolo}).")
+            st.success(f"Utente '{username.strip()}' creato.")
             st.rerun()
 
 st.subheader("Utenti attivi")
@@ -59,10 +57,9 @@ if not utenti:
 
 utente_corrente_id = auth.current_user_id(conn)
 for u in utenti:
-    col1, col2, col3 = st.columns([3, 2, 1])
+    col1, col2 = st.columns([4, 1])
     col1.write(f"**{u['username']}** — {u['nome_visualizzato']}")
-    col2.write(u["ruolo"])
-    with col3:
+    with col2:
         if u["id"] == utente_corrente_id:
             st.caption("(tu)")
         elif st.button("Disattiva", key=f"disattiva_{u['id']}"):

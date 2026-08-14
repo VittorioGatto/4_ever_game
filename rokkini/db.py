@@ -112,7 +112,7 @@ def insert_utente(
     username: str,
     nome_visualizzato: str,
     password_hash: str,
-    ruolo: str,
+    ruolo: str = "super_admin",
     email: str | None = None,
     giocatore_id: int | None = None,
 ) -> int:
