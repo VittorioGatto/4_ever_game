@@ -35,6 +35,15 @@ div[data-testid="stNumberInput"] input,
 div[data-testid="stDateInput"] input {
     border: 1px solid #FFFF00 !important;
 }
+
+/* tag di un'opzione selezionata in un multiselect (es. giocatori scelti):
+   di default arrivano gialle su giallo/nero a basso contrasto, illeggibili */
+[data-tag] {
+    background-color: #000000 !important;
+    color: #00FF00 !important;
+    border: 1px solid #00FF00 !important;
+}
+[data-tag] svg { fill: #00FF00 !important; }
 </style>
 """
 

@@ -34,6 +34,7 @@ def gestisci_anteprima_e_conferma(
     squadra_a: list[int],
     squadra_b: list[int],
     session_key: str = "anteprima_partita",
+    sessione_id: int | None = None,
 ) -> None:
     """Se `calcola` è True (bottone premuto in questo run), calcola i delta
     e li salva in sessione. In ogni caso, se una anteprima è presente in
@@ -101,6 +102,7 @@ def gestisci_anteprima_e_conferma(
             anteprima["squadra_a"],
             anteprima["squadra_b"],
             utente_id,
+            sessione_id=sessione_id,
         )
         del st.session_state[session_key]
         st.success("Partita registrata.")

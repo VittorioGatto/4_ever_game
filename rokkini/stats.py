@@ -100,8 +100,7 @@ def fetch_player_profile(conn, giocatore_id: int) -> dict[str, Any] | None:
     }
 
 
-def fetch_match_history(conn) -> list[dict[str, Any]]:
-    partite = db.fetch_partite_tutte(conn)
+def _costruisci_cronologia(conn, partite: list[dict[str, Any]]) -> list[dict[str, Any]]:
     giocatori_per_id = {g["id"]: g["nome"] for g in db.fetch_giocatori(conn)}
     cronologia = []
     for partita in partite:
@@ -118,6 +117,14 @@ def fetch_match_history(conn) -> list[dict[str, Any]]:
         ]
         cronologia.append({"partita": partita, "squadra_a": squadra_a, "squadra_b": squadra_b})
     return cronologia
+
+
+def fetch_match_history(conn) -> list[dict[str, Any]]:
+    return _costruisci_cronologia(conn, db.fetch_partite_tutte(conn))
+
+
+def fetch_match_history_sessione(conn, sessione_id: int) -> list[dict[str, Any]]:
+    return _costruisci_cronologia(conn, db.fetch_partite_di_sessione(conn, sessione_id))
 
 
 def fetch_records(conn) -> dict[str, Any]:

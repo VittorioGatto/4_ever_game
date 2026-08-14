@@ -16,6 +16,7 @@ pagine_pubbliche = [
     st.Page("app_pages/2_giocatore.py", title="Giocatore", icon="👤"),
     st.Page("app_pages/3_storico.py", title="Storico partite", icon="📜"),
     st.Page("app_pages/4_statistiche.py", title="Statistiche / Record", icon="📊"),
+    st.Page("app_pages/11_sessioni_attive.py", title="Sessioni attive", icon="🟢"),
 ]
 pagine_account = [st.Page("app_pages/0_login.py", title="Account", icon="🔑")]
 

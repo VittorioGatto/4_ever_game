@@ -26,6 +26,20 @@ CREATE TABLE IF NOT EXISTS utenti (
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS sessioni_gioco (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    iniziata_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    terminata_at TEXT,
+    iniziata_da  INTEGER NOT NULL REFERENCES utenti (id)
+);
+
+CREATE TABLE IF NOT EXISTS sessione_partecipanti (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    sessione_id  INTEGER NOT NULL REFERENCES sessioni_gioco (id),
+    giocatore_id INTEGER NOT NULL REFERENCES giocatori (id),
+    UNIQUE (sessione_id, giocatore_id)
+);
+
 CREATE TABLE IF NOT EXISTS partite (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     data_partita      TEXT NOT NULL,
@@ -38,6 +52,7 @@ CREATE TABLE IF NOT EXISTS partite (
     voided_reason     TEXT,
     replaces_match_id INTEGER REFERENCES partite (id),
     registered_by     INTEGER NOT NULL REFERENCES utenti (id),
+    sessione_id       INTEGER REFERENCES sessioni_gioco (id),
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -75,3 +90,5 @@ CREATE INDEX IF NOT EXISTS idx_partite_data ON partite (voided, data_partita, cr
 CREATE INDEX IF NOT EXISTS idx_variazioni_giocatore ON variazioni_rk (giocatore_id);
 CREATE INDEX IF NOT EXISTS idx_partecipazioni_giocatore ON partecipazioni_partita (giocatore_id);
 CREATE INDEX IF NOT EXISTS idx_partecipazioni_partita ON partecipazioni_partita (partita_id);
+CREATE INDEX IF NOT EXISTS idx_partite_sessione ON partite (sessione_id);
+CREATE INDEX IF NOT EXISTS idx_sessione_partecipanti_sessione ON sessione_partecipanti (sessione_id);

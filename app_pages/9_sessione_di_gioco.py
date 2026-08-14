@@ -2,17 +2,13 @@ from datetime import date
 
 import streamlit as st
 
-from rokkini import auth, db, ui_common
+from rokkini import auth, db, stats, ui_common
 from rokkini.matchmaking import GiocatorePerMatchmaking, genera_combinazioni_bilanciate
 
 conn = db.get_connection()
 auth.require_role(conn, "super_admin")
 
 st.title("🎮 Sessione di gioco")
-st.caption(
-    "Seleziona chi c'è oggi: puoi registrare più partite di fila sullo stesso gruppo "
-    "senza reinserirlo ogni volta. Se qualcuno se ne va, basta toglierlo dalla lista."
-)
 
 giocatori = [g for g in db.fetch_giocatori(conn) if not g["sospeso"]]
 if len(giocatori) < 6:
@@ -27,14 +23,53 @@ def _etichetta(giocatore_id: int) -> str:
     return nomi_per_id[giocatore_id]
 
 
+sessione = db.fetch_sessione_attiva(conn)
+
+# --- nessuna sessione in corso: form per aprirne una ------------------------
+
+if sessione is None:
+    st.caption(
+        "Nessuna sessione in corso. Seleziona chi c'è oggi e premi 'Inizia sessione': da quel "
+        "momento sarà visibile pubblicamente (senza bisogno di login) nella pagina "
+        "'Sessioni attive', e potrai registrare più partite di fila sullo stesso gruppo."
+    )
+    pool_iniziale = st.multiselect(
+        "Giocatori presenti oggi",
+        options=list(nomi_per_id.keys()),
+        format_func=_etichetta,
+        key="nuova_sessione_pool",
+    )
+    if len(pool_iniziale) < 6:
+        st.info("Seleziona almeno 6 giocatori per iniziare.")
+    if st.button("▶️ Inizia sessione", disabled=len(pool_iniziale) < 6):
+        utente_id = auth.current_user_id(conn)
+        nuova_sessione_id = db.insert_sessione(conn, utente_id)
+        db.set_partecipanti_sessione(conn, nuova_sessione_id, pool_iniziale)
+        st.rerun()
+    st.stop()
+
+# --- sessione attiva ---------------------------------------------------------
+
+sessione_id = sessione["id"]
+st.success(f"🟢 Sessione in corso, iniziata alle {sessione['iniziata_at']}.")
+if st.button("⏹️ Termina sessione"):
+    db.termina_sessione(conn, sessione_id)
+    st.rerun()
+
+partecipanti_attuali = {g["id"] for g in db.fetch_partecipanti_sessione(conn, sessione_id)}
 pool = st.multiselect(
-    "Giocatori presenti oggi",
+    "Giocatori presenti (modifica se qualcuno arriva o se ne va)",
     options=list(nomi_per_id.keys()),
+    default=list(partecipanti_attuali),
     format_func=_etichetta,
-    key="sessione_pool",
+    key="sessione_pool_attiva",
 )
+if set(pool) != partecipanti_attuali:
+    db.set_partecipanti_sessione(conn, sessione_id, pool)
+    st.rerun()
+
 if len(pool) < 6:
-    st.info("Seleziona almeno 6 giocatori presenti per iniziare.")
+    st.info("Servono almeno 6 giocatori presenti per generare una partita.")
     st.stop()
 
 st.divider()
@@ -131,4 +166,23 @@ ui_common.gestisci_anteprima_e_conferma(
     squadra_a=squadra_a,
     squadra_b=squadra_b,
     session_key="sessione_anteprima_partita",
+    sessione_id=sessione_id,
 )
+
+st.divider()
+cronologia_sessione = stats.fetch_match_history_sessione(conn, sessione_id)
+if cronologia_sessione:
+    st.subheader(f"Partite di questa sessione ({len(cronologia_sessione)})")
+    for voce in reversed(cronologia_sessione):
+        p = voce["partita"]
+        vincitrice_a = p["squadra_vincente"] == "A"
+        with st.expander(f"{p['modalita']} — {p['risultato_set']}"):
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown(f"**Squadra A** {'🏆' if vincitrice_a else ''}")
+                for g in voce["squadra_a"]:
+                    st.write(f"{g['nome']}  {'+' if g['delta'] >= 0 else ''}{g['delta']} Rk")
+            with col_b:
+                st.markdown(f"**Squadra B** {'🏆' if not vincitrice_a else ''}")
+                for g in voce["squadra_b"]:
+                    st.write(f"{g['nome']}  {'+' if g['delta'] >= 0 else ''}{g['delta']} Rk")

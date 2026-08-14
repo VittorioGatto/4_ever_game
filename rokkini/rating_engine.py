@@ -70,11 +70,18 @@ def register_match(
     squadra_a: list[int],
     squadra_b: list[int],
     registered_by: int,
+    sessione_id: int | None = None,
 ) -> int:
     _validate_squadre(modalita, squadra_a, squadra_b)
     try:
         partita_id = db.insert_partita(
-            conn, data_partita, modalita, risultato_set, squadra_vincente, registered_by
+            conn,
+            data_partita,
+            modalita,
+            risultato_set,
+            squadra_vincente,
+            registered_by,
+            sessione_id=sessione_id,
         )
         for giocatore_id in squadra_a:
             db.insert_partecipazione(conn, partita_id, giocatore_id, "A")
@@ -125,6 +132,7 @@ def edit_match(
             squadra_vincente,
             edited_by,
             replaces_match_id=partita_id,
+            sessione_id=originale["sessione_id"],
         )
         for giocatore_id in squadra_a:
             db.insert_partecipazione(conn, nuova_id, giocatore_id, "A")

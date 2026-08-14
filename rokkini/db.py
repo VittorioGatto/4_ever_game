@@ -22,8 +22,19 @@ def connect(database_url: str | None = None, auth_token: str | None = None):
     return conn
 
 
+def _colonna_esiste(conn, tabella: str, colonna: str) -> bool:
+    cur = conn.execute(f"PRAGMA table_info({tabella})")
+    return any(row[1] == colonna for row in cur.fetchall())
+
+
 def apply_schema(conn) -> None:
+    """Crea le tabelle mancanti (CREATE TABLE IF NOT EXISTS, sicuro da
+    rieseguire) e applica le poche modifiche additive a tabelle preesistenti
+    (ALTER TABLE ADD COLUMN, guardato con un controllo di esistenza: SQLite
+    non supporta ADD COLUMN IF NOT EXISTS)."""
     conn.executescript(SCHEMA_PATH.read_text())
+    if not _colonna_esiste(conn, "partite", "sessione_id"):
+        conn.execute("ALTER TABLE partite ADD COLUMN sessione_id INTEGER REFERENCES sessioni_gioco (id)")
     conn.commit()
 
 
@@ -141,12 +152,22 @@ def insert_partita(
     squadra_vincente: str,
     registered_by: int,
     replaces_match_id: int | None = None,
+    sessione_id: int | None = None,
 ) -> int:
     cur = conn.execute(
         """INSERT INTO partite
-               (data_partita, modalita, risultato_set, squadra_vincente, registered_by, replaces_match_id)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (data_partita, modalita, risultato_set, squadra_vincente, registered_by, replaces_match_id),
+               (data_partita, modalita, risultato_set, squadra_vincente, registered_by,
+                replaces_match_id, sessione_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (
+            data_partita,
+            modalita,
+            risultato_set,
+            squadra_vincente,
+            registered_by,
+            replaces_match_id,
+            sessione_id,
+        ),
     )
     return cur.lastrowid
 
@@ -285,3 +306,76 @@ def delete_tutte_variazioni_e_leader_log(conn) -> None:
     """Usato solo da recompute_all: azzera le tabelle derivate prima del replay."""
     conn.execute("DELETE FROM variazioni_rk")
     conn.execute("DELETE FROM ranking_leader_log")
+
+
+# --- sessioni di gioco --------------------------------------------------------
+
+
+def insert_sessione(conn, iniziata_da: int) -> int:
+    cur = conn.execute("INSERT INTO sessioni_gioco (iniziata_da) VALUES (?)", (iniziata_da,))
+    conn.commit()
+    return cur.lastrowid
+
+
+def termina_sessione(conn, sessione_id: int) -> None:
+    conn.execute(
+        "UPDATE sessioni_gioco SET terminata_at = datetime('now') WHERE id = ?", (sessione_id,)
+    )
+    conn.commit()
+
+
+def fetch_sessione_attiva(conn) -> dict[str, Any] | None:
+    cur = conn.execute(
+        "SELECT * FROM sessioni_gioco WHERE terminata_at IS NULL ORDER BY id DESC LIMIT 1"
+    )
+    return row_as_dict(cur, cur.fetchone())
+
+
+def fetch_sessione(conn, sessione_id: int) -> dict[str, Any] | None:
+    cur = conn.execute("SELECT * FROM sessioni_gioco WHERE id = ?", (sessione_id,))
+    return row_as_dict(cur, cur.fetchone())
+
+
+def fetch_partecipanti_sessione(conn, sessione_id: int) -> list[dict[str, Any]]:
+    cur = conn.execute(
+        """SELECT g.* FROM sessione_partecipanti sp
+           JOIN giocatori g ON g.id = sp.giocatore_id
+           WHERE sp.sessione_id = ? ORDER BY g.nome""",
+        (sessione_id,),
+    )
+    return rows_as_dicts(cur)
+
+
+def set_partecipanti_sessione(conn, sessione_id: int, giocatore_ids: list[int]) -> None:
+    """Riconcilia la lista dei partecipanti con quella data: aggiunge chi
+    manca, toglie chi non c'e' piu'. Non tocca le partite gia' registrate."""
+    attuali = {
+        row["giocatore_id"]
+        for row in rows_as_dicts(
+            conn.execute(
+                "SELECT giocatore_id FROM sessione_partecipanti WHERE sessione_id = ?",
+                (sessione_id,),
+            )
+        )
+    }
+    nuovi = set(giocatore_ids)
+    for giocatore_id in nuovi - attuali:
+        conn.execute(
+            "INSERT INTO sessione_partecipanti (sessione_id, giocatore_id) VALUES (?, ?)",
+            (sessione_id, giocatore_id),
+        )
+    for giocatore_id in attuali - nuovi:
+        conn.execute(
+            "DELETE FROM sessione_partecipanti WHERE sessione_id = ? AND giocatore_id = ?",
+            (sessione_id, giocatore_id),
+        )
+    conn.commit()
+
+
+def fetch_partite_di_sessione(conn, sessione_id: int) -> list[dict[str, Any]]:
+    cur = conn.execute(
+        """SELECT * FROM partite WHERE sessione_id = ? AND voided = 0
+           ORDER BY data_partita ASC, created_at ASC, id ASC""",
+        (sessione_id,),
+    )
+    return rows_as_dicts(cur)
