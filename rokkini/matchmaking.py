@@ -3,6 +3,7 @@ gioco. Funzioni pure, nessun I/O: stesso stile di rokkini/elo.py."""
 
 from dataclasses import dataclass
 from itertools import combinations
+from math import gcd
 
 
 @dataclass(frozen=True)
@@ -108,3 +109,41 @@ def genera_fixture_girone(n_squadre: int) -> list[tuple[int, int]]:
     un girone all'italiana a gruppo unico, ogni squadra incontra ogni altra
     esattamente una volta."""
     return list(combinations(range(n_squadre), 2))
+
+
+def numero_partite_per_girone_equo(n_giocatori: int, dimensione: int) -> int:
+    """Quando `n_giocatori` non è multiplo di `dimensione` non si possono
+    formare squadre fisse senza escludere qualcuno per l'intero girone: le
+    squadre vanno ricomposte partita per partita (vedi
+    prossima_partita_girone_rotante). Questa funzione calcola il numero
+    minimo di partite necessarie perché ognuno ne giochi esattamente lo
+    stesso numero, dato che ogni partita occupa 2*dimensione posti: il
+    minimo comune multiplo di n_giocatori e 2*dimensione, diviso per
+    2*dimensione — equivalentemente n_giocatori / mcd(n_giocatori, 2*dimensione).
+    Se n_giocatori è già multiplo di dimensione, coincide con le partite del
+    girone a squadre fisse (es. 9 giocatori, dimensione 3 → 3 partite, come
+    genera_fixture_girone(3))."""
+    return n_giocatori // gcd(n_giocatori, dimensione * 2)
+
+
+def prossima_partita_girone_rotante(
+    giocatori: list[GiocatorePerMatchmaking],
+    dimensione: int,
+    conteggio_partite: dict[int, int],
+) -> tuple[list[int], list[int]]:
+    """Sceglie i 2*dimensione giocatori che hanno giocato meno partite finora
+    in questo girone (a parità, nell'ordine di `giocatori`) e li divide nelle
+    due squadre più bilanciate possibile. Usata quando il numero di
+    giocatori presenti non è multiplo di `dimensione`: dando sempre priorità
+    a chi ha giocato meno, dopo numero_partite_per_girone_equo(...) partite
+    tutti ne hanno giocate esattamente lo stesso numero."""
+    attesi = dimensione * 2
+    if len(giocatori) < attesi:
+        raise ValueError(
+            f"Servono almeno {attesi} giocatori per una partita da {dimensione} "
+            f"(ricevuti {len(giocatori)})"
+        )
+    ordinati = sorted(giocatori, key=lambda g: conteggio_partite.get(g.player_id, 0))
+    selezionati = ordinati[:attesi]
+    proposta = genera_combinazioni_bilanciate(selezionati, dimensione, n_proposte=1)[0]
+    return proposta.squadra_a, proposta.squadra_b

@@ -5,6 +5,8 @@ from rokkini.matchmaking import (
     genera_combinazioni_bilanciate,
     genera_fixture_girone,
     genera_squadre_multiple,
+    numero_partite_per_girone_equo,
+    prossima_partita_girone_rotante,
 )
 
 
@@ -117,3 +119,67 @@ def test_fixture_girone_ogni_squadra_gioca_contro_tutte_le_altre():
         conteggio[b] += 1
     assert all(v == 4 for v in conteggio.values())  # n_squadre - 1
     assert len(set(fixture)) == len(fixture)  # nessuna coppia duplicata
+
+
+# --- numero_partite_per_girone_equo / prossima_partita_girone_rotante --------
+
+
+def test_numero_partite_girone_equo_coincide_col_girone_a_squadre_fisse():
+    # 9 giocatori, dimensione 3 -> multiplo esatto: 3 squadre, C(3,2) = 3 partite
+    assert numero_partite_per_girone_equo(9, 3) == 3
+    # 8 giocatori, dimensione 4 -> 2 squadre, C(2,2) = 1 partita
+    assert numero_partite_per_girone_equo(8, 4) == 1
+
+
+def test_numero_partite_girone_equo_non_multiplo():
+    assert numero_partite_per_girone_equo(10, 3) == 5  # mcd(10,6)=2 -> 10/2
+    assert numero_partite_per_girone_equo(7, 3) == 7  # mcd(7,6)=1 -> 7/1
+
+
+def test_girone_rotante_richiede_almeno_2_dimensione_giocatori():
+    with pytest.raises(ValueError, match="6 giocatori"):
+        prossima_partita_girone_rotante(_giocatori([1000] * 5), dimensione=3, conteggio_partite={})
+
+
+def test_girone_rotante_produce_partecipazione_equa():
+    """10 giocatori, dimensione 3 (non multiplo): simulando le
+    numero_partite_per_girone_equo partite suggerite una dopo l'altra
+    (aggiornando il conteggio come farebbe la pagina dopo ogni conferma),
+    alla fine tutti devono aver giocato lo stesso numero di partite."""
+    giocatori = _giocatori([1000 + i * 10 for i in range(10)])
+    dimensione = 3
+    target = numero_partite_per_girone_equo(len(giocatori), dimensione)
+    assert target == 5
+
+    conteggio = {g.player_id: 0 for g in giocatori}
+    for _ in range(target):
+        squadra_a, squadra_b = prossima_partita_girone_rotante(giocatori, dimensione, conteggio)
+        assert len(squadra_a) == dimensione
+        assert len(squadra_b) == dimensione
+        assert set(squadra_a) & set(squadra_b) == set()
+        for gid in squadra_a + squadra_b:
+            conteggio[gid] += 1
+
+    valori = list(conteggio.values())
+    assert len(set(valori)) == 1  # tutti hanno giocato lo stesso numero di partite
+    assert valori[0] == target * dimensione * 2 // len(giocatori)
+
+
+def test_girone_rotante_caso_estremo_coprimo():
+    """7 giocatori, dimensione 3: mcd(7,6)=1, quindi servono 7 partite perche'
+    tutti giochino lo stesso numero di volte (6 ciascuno) — verifica che la
+    simulazione converga comunque a un risultato equo, anche nel caso che
+    richiede piu' partite."""
+    giocatori = _giocatori([1000 + i * 15 for i in range(7)])
+    dimensione = 3
+    target = numero_partite_per_girone_equo(len(giocatori), dimensione)
+    assert target == 7
+
+    conteggio = {g.player_id: 0 for g in giocatori}
+    for _ in range(target):
+        squadra_a, squadra_b = prossima_partita_girone_rotante(giocatori, dimensione, conteggio)
+        for gid in squadra_a + squadra_b:
+            conteggio[gid] += 1
+
+    assert len(set(conteggio.values())) == 1
+    assert next(iter(conteggio.values())) == 6

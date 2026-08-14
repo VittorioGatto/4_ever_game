@@ -43,6 +43,21 @@ div[data-testid="stDateInput"] input {
     border: 1px solid #00FF00 !important;
 }
 [data-tag] svg { fill: #00FF00 !important; }
+
+div[data-testid="stDataFrame"] { max-width: 100%; overflow-x: auto; }
+
+/* su schermi stretti il padding/font di default lascia troppo spazio vuoto
+sopra il titolo e lo fa andare a capo su due righe: qui si riduce entrambi */
+@media (max-width: 640px) {
+    .block-container {
+        padding-top: 2rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    h1 { font-size: 1.9rem !important; }
+    h2 { font-size: 1.5rem !important; }
+    h3 { font-size: 1.25rem !important; }
+}
 </style>
 """
 
