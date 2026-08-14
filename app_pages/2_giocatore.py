@@ -41,6 +41,6 @@ st.table(
 
 st.subheader("Andamento Rk")
 if profilo["storico_rk"].height > 1:
-    st.line_chart(profilo["storico_rk"], x="partita_numero", y="rk", color="#FFFF00")
+    st.line_chart(profilo["storico_rk"], x="partita_numero", y="rk", color="#00FF00")
 else:
     st.caption("Nessuna partita ancora giocata.")

@@ -105,6 +105,20 @@ def set_giocatore_sospeso(conn, giocatore_id: int, sospeso: bool) -> None:
     conn.commit()
 
 
+def delete_giocatore(conn, giocatore_id: int) -> None:
+    """Elimina un giocatore solo se non ha mai giocato: con delle partite
+    registrate, eliminarlo lascerebbe partecipazioni_partita/variazioni_rk
+    orfane e romperebbe rating_engine.recompute_all. Un giocatore con
+    storico va sospeso (set_giocatore_sospeso), non eliminato."""
+    giocatore = fetch_giocatore(conn, giocatore_id)
+    if giocatore is None:
+        return
+    if giocatore["partite_giocate"] > 0:
+        raise ValueError("Non si può eliminare un giocatore che ha già partite registrate.")
+    conn.execute("DELETE FROM giocatori WHERE id = ?", (giocatore_id,))
+    conn.commit()
+
+
 # --- utenti -----------------------------------------------------------------
 
 

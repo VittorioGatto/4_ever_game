@@ -53,3 +53,18 @@ for g in giocatori:
             "Gli Rk non sono modificabili direttamente da qui: per correggere un errore "
             "usa 'Correggi/annulla partita', così la modifica resta tracciata."
         )
+
+        if g["partite_giocate"] == 0:
+            if st.button("🗑️ Elimina giocatore", key=f"elimina_{g['id']}"):
+                try:
+                    db.delete_giocatore(conn, g["id"])
+                except Exception as e:
+                    st.error(f"Impossibile eliminare: {e}")
+                else:
+                    st.success(f"Giocatore '{g['nome']}' eliminato.")
+                    st.rerun()
+        else:
+            st.caption(
+                "Non eliminabile: ha già partite registrate. Usa 'Sospeso' per nasconderlo "
+                "dalla selezione senza perdere lo storico."
+            )
