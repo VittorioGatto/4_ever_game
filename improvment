@@ -1,0 +1,23 @@
+togliere admin, solo il superadmin può inserire giocatori, creare partite e risultati
+quando si crea la partita, non permettere di inserire lo stesso giocatore in tutte e due le squadre
+
+
+
+
+
+
+
+
+creare la pagina "sessione di gioco" ìn cui  si inseriscono tutti i giocatori presenti nella sessioni, 
+il sistema deve creare in automatico le squadre, con la possibilità di modificarle (se qualcuno va via 
+si devono poter modificare le squadre)
+
+il matchmaking deve attingere solo dai giocaotri presenti nella sessione di gioco  e deve bilanciare e
+creare più combinazioni di gioco equilibrate.
+
+
+voglio anche che venga inserita la possibilità di estrarre i dati che poi possono essere re-importati.
+
+
+Voglio migliorare la grafica. Vorrei lo sfondo nero le scritte gialle e deve essere simile a un sito degli anni 90
+ 
