@@ -6,6 +6,7 @@ from rokkini.matchmaking import (
     genera_fixture_girone,
     genera_squadre_multiple,
     numero_partite_per_girone_equo,
+    programma_completo_girone_rotante,
     prossima_partita_girone_rotante,
 )
 
@@ -183,3 +184,38 @@ def test_girone_rotante_caso_estremo_coprimo():
 
     assert len(set(conteggio.values())) == 1
     assert next(iter(conteggio.values())) == 6
+
+
+def test_programma_completo_girone_rotante_coincide_con_le_chiamate_singole():
+    """La proiezione deve produrre la stessa sequenza che si otterrebbe
+    chiamando prossima_partita_girone_rotante partita per partita e
+    aggiornando il conteggio a mano (e' esattamente quello che fa la pagina
+    dopo ogni conferma), dato lo stesso conteggio di partenza."""
+    giocatori = _giocatori([1000 + i * 10 for i in range(10)])
+    dimensione = 3
+    target = numero_partite_per_girone_equo(len(giocatori), dimensione)
+
+    conteggio_manuale = {g.player_id: 0 for g in giocatori}
+    sequenza_manuale = []
+    for _ in range(target):
+        squadra_a, squadra_b = prossima_partita_girone_rotante(giocatori, dimensione, conteggio_manuale)
+        sequenza_manuale.append((squadra_a, squadra_b))
+        for gid in squadra_a + squadra_b:
+            conteggio_manuale[gid] += 1
+
+    conteggio_iniziale = dict.fromkeys((g.player_id for g in giocatori), 0)
+    sequenza_proiettata = programma_completo_girone_rotante(
+        giocatori, dimensione, conteggio_iniziale, target
+    )
+
+    assert sequenza_proiettata == sequenza_manuale
+
+
+def test_programma_completo_girone_rotante_non_muta_il_conteggio_iniziale():
+    giocatori = _giocatori([1000 + i * 10 for i in range(7)])
+    conteggio_iniziale = dict.fromkeys((g.player_id for g in giocatori), 0)
+    copia = dict(conteggio_iniziale)
+
+    programma_completo_girone_rotante(giocatori, 3, conteggio_iniziale, 4)
+
+    assert conteggio_iniziale == copia

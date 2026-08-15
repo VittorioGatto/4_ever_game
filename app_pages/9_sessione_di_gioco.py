@@ -9,6 +9,7 @@ from rokkini.matchmaking import (
     genera_fixture_girone,
     genera_squadre_multiple,
     numero_partite_per_girone_equo,
+    programma_completo_girone_rotante,
     prossima_partita_girone_rotante,
 )
 
@@ -458,9 +459,33 @@ with st.container(border=True):
                     label_visibility="collapsed",
                 )
 
-            # tiene aggiornata su "Sessioni attive" la proposta per la prossima
-            # partita (puo' cambiare finche' non viene confermata: nuovi
-            # arrivi/partenze dal pool o modifiche manuali alle squadre).
+            # proietta anche le partite successive (oltre a questa) applicando
+            # ripetutamente lo stesso criterio, a partire dal conteggio che si
+            # avrebbe dopo questa partita: e' una previsione utile a mostrare
+            # "il programma", non un impegno — se il pool cambia o una di
+            # queste partite viene modificata a mano prima di essere
+            # confermata, il resto della proiezione da li' in poi cambia.
+            partite_previste = [(squadra_a, squadra_b)]
+            partite_rimanenti = target - completate - 1
+            if partite_rimanenti > 0:
+                conteggio_dopo_questa = dict(conteggio)
+                for gid in squadra_a + squadra_b:
+                    conteggio_dopo_questa[gid] = conteggio_dopo_questa.get(gid, 0) + 1
+                partite_previste += programma_completo_girone_rotante(
+                    candidati, dimensione_corrente, conteggio_dopo_questa, partite_rimanenti
+                )
+
+            with st.container(border=True):
+                st.markdown("**Programma previsto del girone**")
+                for i, (p_a, p_b) in enumerate(partite_previste):
+                    idx_assoluto = completate + i
+                    nomi_a = ", ".join(nomi_per_id[gid] for gid in p_a)
+                    nomi_b = ", ".join(nomi_per_id[gid] for gid in p_b)
+                    st.caption(f"Partita {idx_assoluto + 1}: {nomi_a} vs {nomi_b}")
+
+            # tiene aggiornato su "Sessioni attive" il programma previsto (puo'
+            # cambiare finche' non viene confermato: nuovi arrivi/partenze dal
+            # pool o modifiche manuali alle squadre).
             db.set_programma_torneo(
                 conn,
                 sessione_id,
@@ -470,8 +495,7 @@ with st.container(border=True):
                     "conteggio": {str(gid): n for gid, n in conteggio.items()},
                     "target": target,
                     "completate": completate,
-                    "prossima_a": squadra_a,
-                    "prossima_b": squadra_b,
+                    "partite_previste": [[list(a), list(b)] for a, b in partite_previste],
                 },
             )
 

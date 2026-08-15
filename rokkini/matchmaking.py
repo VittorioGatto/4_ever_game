@@ -147,3 +147,26 @@ def prossima_partita_girone_rotante(
     selezionati = ordinati[:attesi]
     proposta = genera_combinazioni_bilanciate(selezionati, dimensione, n_proposte=1)[0]
     return proposta.squadra_a, proposta.squadra_b
+
+
+def programma_completo_girone_rotante(
+    giocatori: list[GiocatorePerMatchmaking],
+    dimensione: int,
+    conteggio_iniziale: dict[int, int],
+    n_partite: int,
+) -> list[tuple[list[int], list[int]]]:
+    """Proietta in anticipo le prossime `n_partite` del girone a rotazione,
+    applicando ripetutamente prossima_partita_girone_rotante a partire da
+    `conteggio_iniziale` e aggiornando via via una copia locale del
+    conteggio. E' una previsione, non un impegno: se il pool di presenti
+    cambia o una partita viene modificata a mano prima di essere
+    confermata, l'esito reale puo' discostarsi da qui in poi — motivo per
+    cui non e' persistita come fixture fissa, solo mostrata come proposta."""
+    conteggio = dict(conteggio_iniziale)
+    programma = []
+    for _ in range(n_partite):
+        squadra_a, squadra_b = prossima_partita_girone_rotante(giocatori, dimensione, conteggio)
+        programma.append((squadra_a, squadra_b))
+        for gid in squadra_a + squadra_b:
+            conteggio[gid] = conteggio.get(gid, 0) + 1
+    return programma
