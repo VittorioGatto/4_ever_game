@@ -458,6 +458,23 @@ with st.container(border=True):
                     label_visibility="collapsed",
                 )
 
+            # tiene aggiornata su "Sessioni attive" la proposta per la prossima
+            # partita (puo' cambiare finche' non viene confermata: nuovi
+            # arrivi/partenze dal pool o modifiche manuali alle squadre).
+            db.set_programma_torneo(
+                conn,
+                sessione_id,
+                {
+                    "tipo": "rotante",
+                    "dimensione": dimensione_corrente,
+                    "conteggio": {str(gid): n for gid, n in conteggio.items()},
+                    "target": target,
+                    "completate": completate,
+                    "prossima_a": squadra_a,
+                    "prossima_b": squadra_b,
+                },
+            )
+
             data_partita_torneo = st.date_input(
                 "Data partita", value=date.today(), key=f"torneo_rot_data_{idx_partita}"
             )

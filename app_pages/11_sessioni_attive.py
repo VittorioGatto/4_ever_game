@@ -56,9 +56,15 @@ if programma:
                 f"finirà per giocarne {partite_a_testa}. Le squadre si ricompongono a ogni "
                 f"partita in base a chi ha giocato meno, quindi non sono note in anticipo."
             )
+            prossima_a = programma.get("prossima_a")
+            prossima_b = programma.get("prossima_b")
             for idx in range(target):
                 if idx < completate:
                     st.write(f"✅ Partita {idx + 1}")
+                elif idx == completate and prossima_a and prossima_b:
+                    nomi_a = ", ".join(nomi_per_id.get(gid, "?") for gid in prossima_a)
+                    nomi_b = ", ".join(nomi_per_id.get(gid, "?") for gid in prossima_b)
+                    st.write(f"⏳ Partita {idx + 1} — proposta: {nomi_a} vs {nomi_b} (può cambiare)")
                 else:
                     st.write(f"⏳ Partita {idx + 1} — squadre da definire")
 
