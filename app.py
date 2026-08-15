@@ -5,12 +5,11 @@ from rokkini import auth, db, theme
 st.set_page_config(page_title="Rokkini", page_icon="🏐", layout="wide")
 theme.inject_custom_css()
 
-with theme.rocco_sta_pensando():
-    conn = db.get_connection()
-    authenticator = auth.build_authenticator(conn)
-    st.session_state["_authenticator"] = authenticator
-    auth.restore_session(authenticator)
-    ruolo = auth.current_role(conn)
+conn = db.get_connection()
+authenticator = auth.build_authenticator(conn)
+st.session_state["_authenticator"] = authenticator
+auth.restore_session(authenticator)
+ruolo = auth.current_role(conn)
 
 pagine_pubbliche = [
     st.Page("app_pages/1_classifica.py", title="Classifica", icon="🏆", default=True),
@@ -33,5 +32,4 @@ if ruolo == "super_admin":
     ]
 
 navigazione = st.navigation(sezioni)
-with theme.rocco_sta_pensando():
-    navigazione.run()
+navigazione.run()

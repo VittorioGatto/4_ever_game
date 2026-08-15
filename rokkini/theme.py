@@ -2,8 +2,6 @@
 (colori/font) è in .streamlit/config.toml; qui solo il CSS che quel file non
 può esprimere (bordi netti, hover, spaziatura dei titoli)."""
 
-import contextlib
-
 import streamlit as st
 
 _CSS = """
@@ -60,33 +58,48 @@ sopra il titolo e lo fa andare a capo su due righe: qui si riduce entrambi */
     h2 { font-size: 1.5rem !important; }
     h3 { font-size: 1.25rem !important; }
 }
+
+/* "Rocco sta pensando": invece di un placeholder gestito a mano in Python
+(che sparisce con un st.empty().empty() a fine script — inaffidabile,
+perche' st.stop() puo' interrompere lo script prima che quel cleanup
+"conti" per il frontend, lasciandolo bloccato a schermo), si restyla
+l'indicatore "sto girando" che Streamlit stesso mostra/nasconde in base
+allo stato reale di esecuzione dello script: non puo' restare bloccato, e
+stando in position:fixed non sposta il contenuto sotto quando appare o
+sparisce. */
+div[data-testid="stStatusWidget"] {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9999 !important;
+    background-color: #000000 !important;
+    border: 2px solid #00FF00 !important;
+    border-radius: 0 !important;
+    padding: 2rem 3rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    box-shadow: 0 0 24px rgba(0, 255, 0, 0.25) !important;
+}
+div[data-testid="stStatusWidget"] * { display: none !important; }
+div[data-testid="stStatusWidget"]::before {
+    content: "🏐🤔";
+    font-size: 3rem;
+    line-height: 1;
+}
+div[data-testid="stStatusWidget"]::after {
+    content: "Rocco sta pensando...";
+    font-family: monospace;
+    color: #00FF00;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    margin-top: 1rem;
+    white-space: nowrap;
+}
 </style>
 """
 
 
 def inject_custom_css() -> None:
     st.markdown(_CSS, unsafe_allow_html=True)
-
-
-@contextlib.contextmanager
-def rocco_sta_pensando():
-    """Placeholder centrato al posto dello schermo nero durante operazioni
-    lente (tipicamente la prima connessione al DB dopo un periodo di
-    inattività, quando Turso deve "svegliarsi"): senza questo, la pagina
-    resta vuota su sfondo nero finché lo script non finisce."""
-    placeholder = st.empty()
-    placeholder.markdown(
-        """
-        <div style="display:flex;flex-direction:column;align-items:center;
-        justify-content:center;padding:4rem 1rem;text-align:center;">
-            <div style="font-size:4.5rem;line-height:1;">🏐🤔</div>
-            <div style="font-family:monospace;color:#00FF00;font-size:1.3rem;
-            letter-spacing:1px;margin-top:1.2rem;">Rocco sta pensando...</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    try:
-        yield
-    finally:
-        placeholder.empty()
