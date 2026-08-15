@@ -53,8 +53,14 @@ if programma:
             partite_a_testa = target * dimensione * 2 // max(len(programma["conteggio"]), 1)
             st.caption(
                 f"Girone a squadre variabili: {completate}/{target} partite giocate, ognuno "
-                f"finirà per giocarne {partite_a_testa}."
+                f"finirà per giocarne {partite_a_testa}. Le squadre si ricompongono a ogni "
+                f"partita in base a chi ha giocato meno, quindi non sono note in anticipo."
             )
+            for idx in range(target):
+                if idx < completate:
+                    st.write(f"✅ Partita {idx + 1}")
+                else:
+                    st.write(f"⏳ Partita {idx + 1} — squadre da definire")
 
 cronologia = stats.fetch_match_history_sessione(conn, sessione["id"])
 if not cronologia:
