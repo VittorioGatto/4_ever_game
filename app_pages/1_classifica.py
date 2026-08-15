@@ -1,6 +1,7 @@
 import streamlit as st
 
 from rokkini import db, stats
+from rokkini.constants import PARTITE_QUALIFICAZIONE
 
 conn = db.get_connection()
 
@@ -10,7 +11,10 @@ fascia = st.radio("Fascia", ["Tutti", "A", "B", "C", "H"], horizontal=True)
 ranking = stats.fetch_ranking(conn, fascia=fascia)
 
 if ranking.height == 0:
-    st.info("Nessun giocatore ancora in classifica (serve aver completato le 8 partite di qualificazione).")
+    st.info(
+        f"Nessun giocatore ancora in classifica (serve aver completato le "
+        f"{PARTITE_QUALIFICAZIONE} partite di qualificazione)."
+    )
 else:
     st.dataframe(
         ranking,
@@ -31,7 +35,7 @@ else:
 qualificazione = stats.fetch_in_qualificazione(conn)
 if qualificazione.height:
     st.subheader("In qualificazione")
-    st.caption("Servono almeno 8 partite ufficiali per entrare in classifica.")
+    st.caption(f"Servono almeno {PARTITE_QUALIFICAZIONE} partite ufficiali per entrare in classifica.")
     st.dataframe(
         qualificazione,
         hide_index=True,

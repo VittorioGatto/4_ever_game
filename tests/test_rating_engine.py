@@ -1,4 +1,5 @@
 from rokkini import db, rating_engine
+from rokkini.constants import PARTITE_QUALIFICAZIONE
 
 
 def crea_giocatori(conn, n: int, prefisso: str = "P") -> list[int]:
@@ -12,11 +13,11 @@ def test_registrazione_sequenziale_aggiorna_rk_e_partite(conn, admin_id):
     )
     giocatori = {g["id"]: g for g in db.fetch_giocatori(conn)}
     for gid in p[0:3]:
-        assert giocatori[gid]["rk_attuale"] == 1020  # squadre pari, K=40, P=0.5 -> +20
+        assert giocatori[gid]["rk_attuale"] == 1025  # squadre pari, K=50, P=0.5 -> +25
         assert giocatori[gid]["vittorie"] == 1
         assert giocatori[gid]["partite_giocate"] == 1
     for gid in p[3:6]:
-        assert giocatori[gid]["rk_attuale"] == 980
+        assert giocatori[gid]["rk_attuale"] == 975
         assert giocatori[gid]["sconfitte"] == 1
 
     # seconda partita: rk_prima memorizzato deve combaciare col rk_attuale post-prima-partita
@@ -26,9 +27,9 @@ def test_registrazione_sequenziale_aggiorna_rk_e_partite(conn, admin_id):
     variazioni = db.fetch_variazioni_per_partita(conn, seconda_partita_id)
     for v in variazioni:
         if v["giocatore_id"] in p[0:3]:
-            assert v["rk_prima"] == 1020
+            assert v["rk_prima"] == 1025
         else:
-            assert v["rk_prima"] == 980
+            assert v["rk_prima"] == 975
 
 
 def test_void_match_ricalcola_come_se_non_fosse_mai_avvenuta(conn, admin_id):
@@ -48,7 +49,7 @@ def test_void_match_ricalcola_come_se_non_fosse_mai_avvenuta(conn, admin_id):
     giocatori = {g["id"]: g for g in db.fetch_giocatori(conn)}
     for gid in p[0:3]:
         assert giocatori[gid]["partite_giocate"] == 1  # solo la seconda partita conta ancora
-        assert giocatori[gid]["rk_attuale"] == 1020  # ricalcolato come fosse la prima e unica
+        assert giocatori[gid]["rk_attuale"] == 1025  # ricalcolato come fosse la prima e unica
 
 
 def test_edit_match_sostituisce_la_partita_mantenendo_la_data(conn, admin_id):
@@ -70,14 +71,14 @@ def test_edit_match_sostituisce_la_partita_mantenendo_la_data(conn, admin_id):
 
     giocatori = {g["id"]: g for g in db.fetch_giocatori(conn)}
     for gid in p[0:3]:
-        assert giocatori[gid]["rk_attuale"] == 980  # ora hanno perso, non vinto
+        assert giocatori[gid]["rk_attuale"] == 975  # ora hanno perso, non vinto
     for gid in p[3:6]:
-        assert giocatori[gid]["rk_attuale"] == 1020
+        assert giocatori[gid]["rk_attuale"] == 1025
 
 
-def test_qualificazione_dopo_ottava_partita(conn, admin_id):
+def test_qualificazione_dopo_partite_di_qualificazione(conn, admin_id):
     protagonista = crea_giocatori(conn, 1)[0]
-    for i in range(8):
+    for i in range(PARTITE_QUALIFICAZIONE):
         compagni = crea_giocatori(conn, 2, prefisso=f"C{i}_")
         avversari = crea_giocatori(conn, 3, prefisso=f"D{i}_")
         rating_engine.register_match(
@@ -91,17 +92,17 @@ def test_qualificazione_dopo_ottava_partita(conn, admin_id):
             admin_id,
         )
         protagonista_row = db.fetch_giocatore(conn, protagonista)
-        if protagonista_row["partite_giocate"] < 8:
+        if protagonista_row["partite_giocate"] < PARTITE_QUALIFICAZIONE:
             assert protagonista_row["qualificato"] == 0
         else:
             assert protagonista_row["qualificato"] == 1
-    assert db.fetch_giocatore(conn, protagonista)["partite_giocate"] == 8
+    assert db.fetch_giocatore(conn, protagonista)["partite_giocate"] == PARTITE_QUALIFICAZIONE
 
 
 def test_k_factor_cambia_a_soglie_partite(conn, admin_id):
     protagonista = crea_giocatori(conn, 1)[0]
     k_attesi = []
-    for i in range(9):  # 9 partite: la nona deve usare K=32 (bucket 9-20)
+    for i in range(15):  # 15 partite: la quindicesima deve usare K=32 (scaglione 15-25)
         compagni = crea_giocatori(conn, 2, prefisso=f"C{i}_")
         avversari = crea_giocatori(conn, 3, prefisso=f"D{i}_")
         m_id = rating_engine.register_match(
@@ -117,8 +118,9 @@ def test_k_factor_cambia_a_soglie_partite(conn, admin_id):
         variazioni = db.fetch_variazioni_per_partita(conn, m_id)
         k_usato = next(v["k_usato"] for v in variazioni if v["giocatore_id"] == protagonista)
         k_attesi.append(k_usato)
-    assert k_attesi[0:8] == [40] * 8
-    assert k_attesi[8] == 32
+    assert k_attesi[0:5] == [50] * 5
+    assert k_attesi[5:14] == [40] * 9
+    assert k_attesi[14] == 32
 
 
 def test_void_produce_effetto_a_catena_oltre_i_giocatori_originali(conn, admin_id):
@@ -130,10 +132,10 @@ def test_void_produce_effetto_a_catena_oltre_i_giocatori_originali(conn, admin_i
     p7, p8 = crea_giocatori(conn, 2, prefisso="P7P8_")
     p9, p10, p11 = crea_giocatori(conn, 3, prefisso="P9P10P11_")
 
-    # p4 perde 8 partite di fila contro avversari sempre nuovi, accumulando
-    # un deficit di Rk consistente
+    # p4 perde molte partite di fila contro avversari sempre nuovi,
+    # accumulando un deficit di Rk consistente
     matches_precedenti = []
-    for i in range(8):
+    for i in range(10):
         compagni = crea_giocatori(conn, 2, prefisso=f"PRE{i}_")
         avversari = crea_giocatori(conn, 3, prefisso=f"OPP{i}_")
         m_id = rating_engine.register_match(

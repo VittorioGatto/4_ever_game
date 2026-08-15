@@ -84,9 +84,10 @@ div[data-testid="stStatusWidget"] {
 }
 div[data-testid="stStatusWidget"] * { display: none !important; }
 div[data-testid="stStatusWidget"]::before {
-    content: "🏐🤔";
-    font-size: 3rem;
+    content: "🏐⚽🏀🎾♿🤔";
+    font-size: 2.2rem;
     line-height: 1;
+    letter-spacing: 0.1rem;
 }
 div[data-testid="stStatusWidget"]::after {
     content: "Rocco sta pensando...";

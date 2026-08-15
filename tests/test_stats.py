@@ -1,4 +1,5 @@
 from rokkini import db, rating_engine, stats
+from rokkini.constants import PARTITE_QUALIFICAZIONE
 
 
 def crea_giocatori(conn, n: int, prefisso: str = "P") -> list[int]:
@@ -11,13 +12,13 @@ def test_ranking_esclude_non_qualificati(conn, admin_id):
 
     ranking = stats.fetch_ranking(conn)
     qualificazione = stats.fetch_in_qualificazione(conn)
-    assert ranking.height == 0  # nessuno ha ancora 8 partite
+    assert ranking.height == 0  # nessuno ha ancora le partite di qualificazione
     assert qualificazione.height == 6
 
 
 def test_ranking_ordinato_per_rk_dopo_qualificazione(conn, admin_id):
     p = crea_giocatori(conn, 6)
-    for i in range(8):
+    for i in range(PARTITE_QUALIFICAZIONE):
         rating_engine.register_match(
             conn, f"2026-01-{i + 1:02d}", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id
         )
@@ -47,11 +48,32 @@ def test_match_history_contiene_rosters_e_delta(conn, admin_id):
     assert all(giocatore["delta"] > 0 for giocatore in cronologia[0]["squadra_a"])
 
 
+def test_match_history_per_giorno_raggruppa_e_ordina(conn, admin_id):
+    p = crea_giocatori(conn, 6)
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "1-2", "B", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-02", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+
+    giorni = stats.fetch_match_history_per_giorno(conn)
+    assert [g["data"] for g in giorni] == ["2026-01-02", "2026-01-01"]  # piu' recente prima
+    assert len(giorni[0]["partite"]) == 1
+    assert len(giorni[1]["partite"]) == 2
+
+    # giorno 1: una vittoria e una sconfitta per p[0:3] -> deltas che si
+    # compensano parzialmente, la classifica del giorno riflette la somma
+    nomi_classifica = [r["nome"] for r in giorni[1]["classifica"]]
+    assert set(nomi_classifica) == {
+        g["nome"] for g in db.fetch_giocatori(conn) if g["id"] in p
+    }
+    valori = [r["rk_giorno"] for r in giorni[1]["classifica"]]
+    assert valori == sorted(valori, reverse=True)
+
+
 def test_records_rk_piu_alto(conn, admin_id):
     p = crea_giocatori(conn, 6)
     rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
     record = stats.fetch_records(conn)
-    assert record["rk_piu_alto"]["valore"] == 1020
+    assert record["rk_piu_alto"]["valore"] == 1025
 
 
 def test_classifica_sessione_somma_i_delta_e_ordina(conn, admin_id):

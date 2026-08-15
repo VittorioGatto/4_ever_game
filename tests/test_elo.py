@@ -13,11 +13,13 @@ from rokkini.elo import (
 
 
 def test_k_factor_soglie():
-    assert k_factor(0) == 40  # prima partita
-    assert k_factor(7) == 40  # ottava partita
-    assert k_factor(8) == 32  # nona partita
-    assert k_factor(19) == 32  # ventesima
-    assert k_factor(20) == 24  # ventunesima
+    assert k_factor(0) == 50  # prima partita
+    assert k_factor(4) == 50  # quinta partita
+    assert k_factor(5) == 40  # sesta partita
+    assert k_factor(13) == 40  # quattordicesima
+    assert k_factor(14) == 32  # quindicesima
+    assert k_factor(24) == 32  # venticinquesima
+    assert k_factor(25) == 24  # ventiseiesima
     assert k_factor(39) == 24  # quarantesima
     assert k_factor(40) == 16  # quarantunesima
     assert k_factor(1000) == 16

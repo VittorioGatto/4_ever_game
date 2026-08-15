@@ -127,6 +127,36 @@ def fetch_match_history_sessione(conn, sessione_id: int) -> list[dict[str, Any]]
     return _costruisci_cronologia(conn, db.fetch_partite_di_sessione(conn, sessione_id))
 
 
+def fetch_match_history_per_giorno(conn) -> list[dict[str, Any]]:
+    """Storico raggruppato per giorno (data_partita), i giorni piu' recenti
+    prima: per ciascuno, le partite di quel giorno (incluse quelle
+    annullate, per trasparenza) e la classifica giornaliera — somma dei
+    delta Rk di quel giorno per giocatore, ordinata decrescente. Le
+    partite annullate non hanno variazioni_rk (rating_engine.recompute_all
+    le esclude dal replay), quindi non contribuiscono alla somma."""
+    giorni: dict[str, list[dict[str, Any]]] = {}
+    for voce in fetch_match_history(conn):
+        giorni.setdefault(voce["partita"]["data_partita"], []).append(voce)
+
+    risultato = []
+    for data in sorted(giorni.keys(), reverse=True):
+        voci_giorno = giorni[data]
+        somma_per_giocatore: dict[str, int] = {}
+        for voce in voci_giorno:
+            for g in voce["squadra_a"] + voce["squadra_b"]:
+                somma_per_giocatore[g["nome"]] = somma_per_giocatore.get(g["nome"], 0) + g["delta"]
+        classifica_giorno = sorted(
+            (
+                {"nome": nome, "rk_giorno": somma}
+                for nome, somma in somma_per_giocatore.items()
+            ),
+            key=lambda r: r["rk_giorno"],
+            reverse=True,
+        )
+        risultato.append({"data": data, "partite": voci_giorno, "classifica": classifica_giorno})
+    return risultato
+
+
 def fetch_classifica_sessione(conn, sessione_id: int) -> list[dict[str, Any]]:
     """Somma i delta Rk per giocatore sulle partite non annullate di questa
     sessione, unita al Rk totale attuale di ciascuno. Ordinata per Rk
