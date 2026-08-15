@@ -31,6 +31,19 @@ def _etichetta(giocatore_id: int) -> str:
     return nomi_per_id[giocatore_id]
 
 
+def _termina_e_pulisci(sessione_id: int) -> None:
+    """Termina la sessione e ripulisce dal session_state tutto cio' che si
+    riferiva a lei (squadre, fixture, pool selezionato): session_state
+    sopravvive alla fine di una sessione (solo l'id sessione nel DB
+    cambia), quindi senza questa pulizia la prossima sessione erediterebbe
+    squadre/partite/presenti di quella appena terminata, anche se chiusa
+    a girone non ancora completo."""
+    db.termina_sessione(conn, sessione_id)
+    for key in list(st.session_state.keys()):
+        if key.startswith("torneo_") or key in ("sessione_pool_attiva", "_persist_torneo_modalita"):
+            st.session_state.pop(key, None)
+
+
 sessione = db.fetch_sessione_attiva(conn)
 
 # --- nessuna sessione in corso: form per aprirne una ------------------------
@@ -63,7 +76,7 @@ sessione_id = sessione["id"]
 with st.container(border=True):
     st.success(f"🟢 Sessione in corso, iniziata alle {sessione['iniziata_at']}.")
     if st.button("⏹️ Termina sessione"):
-        db.termina_sessione(conn, sessione_id)
+        _termina_e_pulisci(sessione_id)
         st.rerun()
 
     # poiche' Streamlit "dimentica" lo stato di un widget quando si naviga su
@@ -252,7 +265,7 @@ with st.container(border=True):
                     },
                 )
                 if len(st.session_state["torneo_giocate"]) >= len(fixture):
-                    db.termina_sessione(conn, sessione_id)
+                    _termina_e_pulisci(sessione_id)
 
             esito = ui_common.registra_set_live(f"torneo_set_live_{prossima_idx}")
             if esito:
@@ -407,7 +420,7 @@ with st.container(border=True):
                     },
                 )
                 if st.session_state["torneo_partite_completate"] >= target:
-                    db.termina_sessione(conn, sessione_id)
+                    _termina_e_pulisci(sessione_id)
 
             esito = ui_common.registra_set_live(f"torneo_rot_set_live_{idx_partita}")
             if esito:
