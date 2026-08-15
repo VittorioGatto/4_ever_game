@@ -10,6 +10,23 @@ from rokkini import auth, rating_engine
 from rokkini.elo import PlayerPreMatch, compute_match_deltas
 
 
+def ripristina_widget_persistente(key: str) -> None:
+    """Streamlit "dimentica" lo stato di un widget quando la pagina che lo
+    dichiara non viene eseguita in un run (es. si naviga su un'altra pagina
+    e poi si torna indietro): da chiamare PRIMA di creare il widget, per
+    ripristinarne il valore da una copia ombra non legata a nessun widget
+    (e quindi mai soggetta a questa pulizia). Va abbinata a
+    salva_widget_persistente subito dopo aver creato il widget."""
+    shadow_key = f"_persist_{key}"
+    if key not in st.session_state and shadow_key in st.session_state:
+        st.session_state[key] = st.session_state[shadow_key]
+
+
+def salva_widget_persistente(key: str) -> None:
+    if key in st.session_state:
+        st.session_state[f"_persist_{key}"] = st.session_state[key]
+
+
 def valida_squadre_ui(modalita: str, squadra_a: list[int], squadra_b: list[int]) -> list[str]:
     """Stessi controlli di rating_engine._validate_squadre, ma come lista di
     messaggi per st.error invece di un'eccezione: l'utente deve poter

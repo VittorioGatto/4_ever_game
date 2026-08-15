@@ -33,4 +33,5 @@ if ruolo == "super_admin":
     ]
 
 navigazione = st.navigation(sezioni)
-navigazione.run()
+with theme.rocco_sta_pensando():
+    navigazione.run()

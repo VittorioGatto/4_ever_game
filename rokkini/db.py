@@ -1,5 +1,6 @@
 """Connessione al database (SQLite locale o Turso via libSQL) e CRUD di base."""
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,8 @@ def apply_schema(conn) -> None:
     conn.executescript(SCHEMA_PATH.read_text())
     if not _colonna_esiste(conn, "partite", "sessione_id"):
         conn.execute("ALTER TABLE partite ADD COLUMN sessione_id INTEGER REFERENCES sessioni_gioco (id)")
+    if not _colonna_esiste(conn, "sessioni_gioco", "programma_torneo"):
+        conn.execute("ALTER TABLE sessioni_gioco ADD COLUMN programma_torneo TEXT")
     conn.commit()
 
 
@@ -336,6 +339,31 @@ def termina_sessione(conn, sessione_id: int) -> None:
         "UPDATE sessioni_gioco SET terminata_at = datetime('now') WHERE id = ?", (sessione_id,)
     )
     conn.commit()
+
+
+def set_programma_torneo(conn, sessione_id: int, programma: dict | None) -> None:
+    """Salva il piano del torneo (squadre/fixture o obiettivo del girone a
+    rotazione) cosi' che sia visibile anche da chi guarda 'Sessioni attive'
+    senza essere loggato: a differenza del resto dello stato della pagina
+    Sessione di gioco (che vive solo in st.session_state, nel browser di chi
+    gestisce il torneo), questo deve essere leggibile da qualunque
+    dispositivo. `programma=None` lo cancella (es. quando si rigenerano le
+    squadre da capo)."""
+    conn.execute(
+        "UPDATE sessioni_gioco SET programma_torneo = ? WHERE id = ?",
+        (json.dumps(programma) if programma is not None else None, sessione_id),
+    )
+    conn.commit()
+
+
+def fetch_programma_torneo(conn, sessione_id: int) -> dict | None:
+    cur = conn.execute(
+        "SELECT programma_torneo FROM sessioni_gioco WHERE id = ?", (sessione_id,)
+    )
+    row = cur.fetchone()
+    if row is None or row[0] is None:
+        return None
+    return json.loads(row[0])
 
 
 def fetch_sessione_attiva(conn) -> dict[str, Any] | None:

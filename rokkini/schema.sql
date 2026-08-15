@@ -27,10 +27,11 @@ CREATE TABLE IF NOT EXISTS utenti (
 );
 
 CREATE TABLE IF NOT EXISTS sessioni_gioco (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    iniziata_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    terminata_at TEXT,
-    iniziata_da  INTEGER NOT NULL REFERENCES utenti (id)
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    iniziata_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    terminata_at      TEXT,
+    iniziata_da       INTEGER NOT NULL REFERENCES utenti (id),
+    programma_torneo  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sessione_partecipanti (
