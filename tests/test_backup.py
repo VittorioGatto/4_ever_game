@@ -58,6 +58,39 @@ def test_round_trip_export_import_su_db_pulito(conn, admin_id, tmp_path):
     nuova_conn.close()
 
 
+def test_round_trip_con_sessione_di_gioco_su_db_pulito(conn, admin_id, tmp_path):
+    """Una partita con sessione_id valorizzato deve poter essere esportata e
+    reimportata su un DB diverso da quello di origine (lo scopo stesso del
+    backup): senza sessioni_gioco/sessione_partecipanti nell'elenco delle
+    tabelle esportate, l'INSERT in partite fallisce con FOREIGN KEY
+    constraint failed perche' la sessione referenziata non esiste sul DB di
+    destinazione."""
+    p = crea_giocatori(conn, 6)
+    sessione_id = db.insert_sessione(conn, admin_id)
+    db.set_partecipanti_sessione(conn, sessione_id, p)
+    rating_engine.register_match(
+        conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id, sessione_id=sessione_id
+    )
+
+    dump = backup.export_data(conn)
+    assert dump["tabelle"]["sessioni_gioco"]
+    assert dump["tabelle"]["sessione_partecipanti"]
+
+    nuovo_db = tmp_path / "restore_sessione.db"
+    nuova_conn = libsql.connect(database=str(nuovo_db))
+    nuova_conn.execute("PRAGMA foreign_keys = ON")
+    db.apply_schema(nuova_conn)
+
+    backup.import_data(nuova_conn, dump)  # non deve sollevare FOREIGN KEY constraint failed
+
+    partite_ripristinate = db.fetch_partite_tutte(nuova_conn)
+    assert len(partite_ripristinate) == 1
+    assert partite_ripristinate[0]["sessione_id"] == sessione_id
+    assert len(db.fetch_partecipanti_sessione(nuova_conn, sessione_id)) == 6
+
+    nuova_conn.close()
+
+
 def test_import_sostituisce_non_unisce(conn, admin_id):
     p = crea_giocatori(conn, 6)
     dump_vuoto_di_partite = backup.export_data(conn)  # solo 6 giocatori, nessuna partita

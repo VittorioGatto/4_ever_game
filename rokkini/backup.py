@@ -13,11 +13,17 @@ VERSIONE_FORMATO = 1
 
 # Ordine valido per gli INSERT (rispetta le foreign key: ogni tabella
 # referenzia solo tabelle che la precedono). Il DELETE in fase di import usa
-# l'ordine inverso, cosi' cancella prima le tabelle "figlie".
+# l'ordine inverso, cosi' cancella prima le tabelle "figlie". sessioni_gioco
+# e sessione_partecipanti devono esserci: partite.sessione_id le referenzia,
+# e senza di loro un import (specie su un DB diverso da quello di origine,
+# lo scopo stesso del backup) fallisce con FOREIGN KEY constraint failed
+# appena una partita importata fa riferimento a una sessione mai ripristinata.
 TABELLE: tuple[str, ...] = (
     "giocatori",
     "utenti",
+    "sessioni_gioco",
     "partite",
+    "sessione_partecipanti",
     "partecipazioni_partita",
     "variazioni_rk",
     "ranking_leader_log",
