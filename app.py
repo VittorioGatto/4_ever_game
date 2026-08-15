@@ -2,7 +2,7 @@ import streamlit as st
 
 from rokkini import auth, db, theme
 
-st.set_page_config(page_title="Rokkini", page_icon="🏐", layout="wide")
+st.set_page_config(page_title="RokkUp", page_icon="🏐", layout="wide")
 theme.inject_custom_css()
 
 conn = db.get_connection()
@@ -17,10 +17,11 @@ pagine_pubbliche = [
     st.Page("app_pages/3_storico.py", title="Storico partite", icon="📜"),
     st.Page("app_pages/4_statistiche.py", title="Statistiche / Record", icon="📊"),
     st.Page("app_pages/11_sessioni_attive.py", title="Sessioni attive", icon="🟢"),
+    st.Page("app_pages/12_regolamento.py", title="Regolamento", icon="📖"),
 ]
 pagine_account = [st.Page("app_pages/0_login.py", title="Account", icon="🔑")]
 
-sezioni = {"Rokkini": pagine_pubbliche, "Account": pagine_account}
+sezioni = {"RokkUp": pagine_pubbliche, "Account": pagine_account}
 
 if ruolo == "super_admin":
     sezioni["Amministrazione"] = [
