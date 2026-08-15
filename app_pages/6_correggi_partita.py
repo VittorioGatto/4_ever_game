@@ -1,11 +1,12 @@
 import streamlit as st
 
-from rokkini import auth, db, rating_engine
+from rokkini import auth, db, rating_engine, ui_common
 
 conn = db.get_connection()
 auth.require_role(conn, "super_admin")
 
 st.title("✏️ Correggi / annulla partita")
+ui_common.mostra_messaggio_pendente()
 
 partite = db.fetch_partite_non_annullate(conn)
 if not partite:
@@ -73,15 +74,21 @@ with tab_annulla:
         rating_engine.void_match(conn, partita_id, utente_id, motivo.strip())
         rk_dopo = {g["id"]: g["rk_attuale"] for g in db.fetch_giocatori(conn)}
         cambiati = [gid for gid in rk_prima if rk_prima[gid] != rk_dopo.get(gid)]
-        st.success(f"Partita annullata. {len(cambiati)} giocatori hanno un Rk aggiornato.")
-        if cambiati:
-            st.table(
-                {
-                    "Giocatore": [nomi_per_id.get(gid, "?") for gid in cambiati],
-                    "Rk prima": [rk_prima[gid] for gid in cambiati],
-                    "Rk dopo": [rk_dopo[gid] for gid in cambiati],
-                }
-            )
+        tabella = (
+            {
+                "Giocatore": [nomi_per_id.get(gid, "?") for gid in cambiati],
+                "Rk prima": [rk_prima[gid] for gid in cambiati],
+                "Rk dopo": [rk_dopo[gid] for gid in cambiati],
+            }
+            if cambiati
+            else None
+        )
+        ui_common.imposta_messaggio_pendente(
+            f"✅ Partita annullata. {len(cambiati)} giocatori hanno un Rk aggiornato.", tabella
+        )
+        for key in ("motivo_annulla", "conferma_annulla"):
+            st.session_state.pop(key, None)
+        st.rerun()
 
 with tab_correggi:
     st.caption("La data della partita non e' modificabile da qui: resta la stessa per non alterare l'ordine cronologico.")
@@ -140,12 +147,18 @@ with tab_correggi:
         )
         rk_dopo = {g["id"]: g["rk_attuale"] for g in db.fetch_giocatori(conn)}
         cambiati = [gid for gid in rk_prima if rk_prima[gid] != rk_dopo.get(gid)]
-        st.success(f"Partita corretta. {len(cambiati)} giocatori hanno un Rk aggiornato.")
-        if cambiati:
-            st.table(
-                {
-                    "Giocatore": [nomi_per_id.get(gid, "?") for gid in cambiati],
-                    "Rk prima": [rk_prima[gid] for gid in cambiati],
-                    "Rk dopo": [rk_dopo[gid] for gid in cambiati],
-                }
-            )
+        tabella = (
+            {
+                "Giocatore": [nomi_per_id.get(gid, "?") for gid in cambiati],
+                "Rk prima": [rk_prima[gid] for gid in cambiati],
+                "Rk dopo": [rk_dopo[gid] for gid in cambiati],
+            }
+            if cambiati
+            else None
+        )
+        ui_common.imposta_messaggio_pendente(
+            f"✅ Partita corretta. {len(cambiati)} giocatori hanno un Rk aggiornato.", tabella
+        )
+        for key in ("edit_modalita", "edit_squadra_a", "edit_squadra_b", "edit_risultato"):
+            st.session_state.pop(key, None)
+        st.rerun()

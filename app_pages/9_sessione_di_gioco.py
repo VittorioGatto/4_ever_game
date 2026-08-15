@@ -17,6 +17,7 @@ conn = db.get_connection()
 auth.require_role(conn, "super_admin")
 
 st.title("🎮 Sessione di gioco")
+ui_common.mostra_messaggio_pendente()
 
 giocatori = [g for g in db.fetch_giocatori(conn) if not g["sospeso"]]
 if len(giocatori) < 6:

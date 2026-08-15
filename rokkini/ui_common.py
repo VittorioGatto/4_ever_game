@@ -10,6 +10,25 @@ from rokkini import auth, rating_engine
 from rokkini.elo import PlayerPreMatch, compute_match_deltas
 
 
+def imposta_messaggio_pendente(
+    testo: str, tabella: dict | None = None, chiave: str = "_messaggio_operazione"
+) -> None:
+    """Salva un messaggio di successo da mostrare al PROSSIMO run, prima di
+    un st.rerun(): chiamare st.success() e poi st.rerun() nello stesso run
+    e' una corsa persa, perche' il rerun scarta il frame corrente prima che
+    l'utente possa vedere il messaggio. Va abbinata a mostra_messaggio_pendente
+    in cima alla pagina."""
+    st.session_state[chiave] = {"testo": testo, "tabella": tabella}
+
+
+def mostra_messaggio_pendente(chiave: str = "_messaggio_operazione") -> None:
+    dato = st.session_state.pop(chiave, None)
+    if dato:
+        st.success(dato["testo"])
+        if dato.get("tabella"):
+            st.table(dato["tabella"])
+
+
 def ripristina_widget_persistente(key: str) -> None:
     """Streamlit "dimentica" lo stato di un widget quando la pagina che lo
     dichiara non viene eseguita in un run (es. si naviga su un'altra pagina
@@ -175,5 +194,5 @@ def gestisci_anteprima_e_conferma(
             reset_set_live(set_live_key)
         if on_success:
             on_success()
-        st.success("Partita registrata.")
+        imposta_messaggio_pendente("✅ Partita registrata.")
         st.rerun()
