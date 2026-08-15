@@ -175,6 +175,10 @@ if modo == "Partita semplice":
         st.error(e)
 
     if not errori:
+
+        def _termina_sessione_a_fine_partita() -> None:
+            db.termina_sessione(conn, sessione_id)
+
         esito = ui_common.registra_set_live("sessione_set_live")
         if esito:
             risultato_set, _ = esito
@@ -191,6 +195,7 @@ if modo == "Partita semplice":
                 session_key="sessione_anteprima_partita",
                 sessione_id=sessione_id,
                 set_live_key="sessione_set_live",
+                on_success=_termina_sessione_a_fine_partita,
             )
 
 # ==============================================================================
@@ -302,6 +307,8 @@ else:
 
             def _segna_fixture_giocata(idx: int = prossima_idx) -> None:
                 st.session_state["torneo_giocate"].add(idx)
+                if len(st.session_state["torneo_giocate"]) >= len(fixture):
+                    db.termina_sessione(conn, sessione_id)
 
             esito = ui_common.registra_set_live(f"torneo_set_live_{prossima_idx}")
             if esito:
@@ -401,6 +408,8 @@ else:
                         st.session_state["torneo_conteggio_partite"].get(gid, 0) + 1
                     )
                 st.session_state["torneo_partite_completate"] += 1
+                if st.session_state["torneo_partite_completate"] >= target:
+                    db.termina_sessione(conn, sessione_id)
 
             esito = ui_common.registra_set_live(f"torneo_rot_set_live_{idx_partita}")
             if esito:

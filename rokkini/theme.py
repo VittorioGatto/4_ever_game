@@ -2,6 +2,8 @@
 (colori/font) è in .streamlit/config.toml; qui solo il CSS che quel file non
 può esprimere (bordi netti, hover, spaziatura dei titoli)."""
 
+import contextlib
+
 import streamlit as st
 
 _CSS = """
@@ -64,3 +66,27 @@ sopra il titolo e lo fa andare a capo su due righe: qui si riduce entrambi */
 
 def inject_custom_css() -> None:
     st.markdown(_CSS, unsafe_allow_html=True)
+
+
+@contextlib.contextmanager
+def rocco_sta_pensando():
+    """Placeholder centrato al posto dello schermo nero durante operazioni
+    lente (tipicamente la prima connessione al DB dopo un periodo di
+    inattività, quando Turso deve "svegliarsi"): senza questo, la pagina
+    resta vuota su sfondo nero finché lo script non finisce."""
+    placeholder = st.empty()
+    placeholder.markdown(
+        """
+        <div style="display:flex;flex-direction:column;align-items:center;
+        justify-content:center;padding:4rem 1rem;text-align:center;">
+            <div style="font-size:4.5rem;line-height:1;">🏐🤔</div>
+            <div style="font-family:monospace;color:#00FF00;font-size:1.3rem;
+            letter-spacing:1px;margin-top:1.2rem;">Rocco sta pensando...</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    try:
+        yield
+    finally:
+        placeholder.empty()
