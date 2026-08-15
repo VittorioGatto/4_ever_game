@@ -15,7 +15,7 @@ else:
     st.dataframe(
         ranking,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "posizione": st.column_config.NumberColumn("#"),
             "nome": st.column_config.TextColumn("Giocatore"),
@@ -35,7 +35,7 @@ if qualificazione.height:
     st.dataframe(
         qualificazione,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "nome": st.column_config.TextColumn("Giocatore"),
             "rk_attuale": st.column_config.NumberColumn("Rk"),

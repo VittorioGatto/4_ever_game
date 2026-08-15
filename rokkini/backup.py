@@ -32,6 +32,45 @@ def export_data(conn) -> dict[str, Any]:
     return {"versione": VERSIONE_FORMATO, "tabelle": tabelle}
 
 
+# Tabelle collegate a partite/sessioni: vengono svuotate da reset_completo,
+# nell'ordine che rispetta le foreign key (prima le "figlie").
+TABELLE_STORICO: tuple[str, ...] = (
+    "variazioni_rk",
+    "partecipazioni_partita",
+    "partite",
+    "sessione_partecipanti",
+    "sessioni_gioco",
+    "ranking_leader_log",
+)
+
+
+def reset_completo(conn) -> None:
+    """Cancella tutto lo storico (partite, partecipazioni, variazioni Rk,
+    sessioni di gioco) e riporta ogni giocatore ai valori di partenza. Non
+    tocca giocatori/utenti come account: restano gli stessi nomi e le stesse
+    credenziali, solo le statistiche ripartono da zero. Operazione
+    irreversibile (a meno di ripristinare un backup preso prima)."""
+    try:
+        for nome_tabella in TABELLE_STORICO:
+            conn.execute(f"DELETE FROM {nome_tabella}")
+        conn.execute(
+            """UPDATE giocatori SET
+                rk_attuale = 1000,
+                partite_giocate = 0,
+                vittorie = 0,
+                sconfitte = 0,
+                fascia_attuale = 'H',
+                qualificato = 0,
+                rk_record = 1000,
+                streak_vittorie_corrente = 0,
+                streak_vittorie_record = 0"""
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def import_data(conn, dump: dict[str, Any]) -> None:
     if dump.get("versione") != VERSIONE_FORMATO:
         raise ValueError(

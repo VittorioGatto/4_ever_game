@@ -55,3 +55,19 @@ if file_caricato is not None:
         else:
             st.success("Dati importati correttamente.")
             st.rerun()
+
+st.divider()
+
+st.subheader("🔄 Reset completo")
+st.error(
+    "⚠️ Cancella TUTTE le partite e le sessioni di gioco (storico e Rk guadagnati/persi), e "
+    "riporta ogni giocatore ai valori di partenza: Rk 1000, zero partite/vittorie/sconfitte. "
+    "Giocatori e utenti restano (stessi nomi, stesse credenziali), solo le statistiche "
+    "ripartono da zero. Non è reversibile: se vuoi poterci tornare, scarica prima un backup "
+    "qui sopra."
+)
+conferma_reset = st.text_input("Scrivi AZZERA per abilitare il reset", key="conferma_reset")
+if st.button("🔄 Azzera tutte le partite", type="primary", disabled=conferma_reset != "AZZERA"):
+    backup.reset_completo(conn)
+    st.success("Tutto azzerato: partite cancellate, giocatori tornati a Rk 1000.")
+    st.rerun()

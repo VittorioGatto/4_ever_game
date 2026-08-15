@@ -29,7 +29,7 @@ with st.container(border=True):
         for g in partecipanti
     ]
     righe.sort(key=lambda r: r["Rk guadagnati oggi"], reverse=True)
-    st.dataframe(righe, hide_index=True, use_container_width=True)
+    st.dataframe(righe, hide_index=True, width="stretch")
 
 nomi_per_id = {g["id"]: g["nome"] for g in partecipanti}
 

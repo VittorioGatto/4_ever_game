@@ -71,6 +71,35 @@ def test_import_sostituisce_non_unisce(conn, admin_id):
     assert len(db.fetch_giocatori(conn)) == 6
 
 
+def test_reset_completo_azzera_partite_e_statistiche(conn, admin_id):
+    p = crea_giocatori(conn, 6)
+    sessione_id = db.insert_sessione(conn, admin_id)
+    db.set_partecipanti_sessione(conn, sessione_id, p)
+    rating_engine.register_match(
+        conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id, sessione_id=sessione_id
+    )
+    rating_engine.register_match(conn, "2026-01-02", "3v3", "1-2", "B", p[0:3], p[3:6], admin_id)
+
+    assert len(db.fetch_partite_tutte(conn)) == 2
+    giocatore_dopo_partite = db.fetch_giocatore(conn, p[0])
+    assert giocatore_dopo_partite["rk_attuale"] != 1000 or giocatore_dopo_partite["partite_giocate"] != 0
+
+    backup.reset_completo(conn)
+
+    assert db.fetch_partite_tutte(conn) == []
+    assert db.fetch_sessione_attiva(conn) is None
+    giocatori_dopo_reset = db.fetch_giocatori(conn)
+    assert len(giocatori_dopo_reset) == 6  # i giocatori come account restano
+    for g in giocatori_dopo_reset:
+        assert g["rk_attuale"] == 1000
+        assert g["partite_giocate"] == 0
+        assert g["vittorie"] == 0
+        assert g["sconfitte"] == 0
+        assert g["rk_record"] == 1000
+        assert g["streak_vittorie_corrente"] == 0
+        assert g["streak_vittorie_record"] == 0
+
+
 def test_import_fallito_fa_rollback(conn, admin_id):
     p = crea_giocatori(conn, 6)
     rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
