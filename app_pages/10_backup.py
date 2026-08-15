@@ -3,12 +3,13 @@ from datetime import datetime
 
 import streamlit as st
 
-from rokkini import auth, backup, db
+from rokkini import auth, backup, db, ui_common
 
 conn = db.get_connection()
 auth.require_role(conn, "super_admin")
 
 st.title("💾 Backup dati")
+ui_common.mostra_messaggio_pendente()
 
 st.subheader("Esporta")
 st.caption(
@@ -33,7 +34,10 @@ st.error(
     "con quelli del file caricato. Non è un'unione: quello che c'è ora viene cancellato. "
     "Usalo solo per un ripristino da backup."
 )
-file_caricato = st.file_uploader("File di backup (.json)", type="json")
+_contatore_upload = st.session_state.get("_contatore_upload_backup", 0)
+file_caricato = st.file_uploader(
+    "File di backup (.json)", type="json", key=f"file_backup_{_contatore_upload}"
+)
 
 if file_caricato is not None:
     try:
@@ -46,14 +50,16 @@ if file_caricato is not None:
     n_partite = len(dump_da_importare.get("tabelle", {}).get("partite", []))
     st.write(f"Il file contiene **{n_giocatori} giocatori** e **{n_partite} partite**.")
 
-    conferma = st.text_input("Scrivi CONFERMO per abilitare l'importazione")
+    conferma = st.text_input("Scrivi CONFERMO per abilitare l'importazione", key="conferma_importa")
     if st.button("Importa e sostituisci tutto", type="primary", disabled=conferma != "CONFERMO"):
         try:
             backup.import_data(conn, dump_da_importare)
         except Exception as e:
             st.error(f"Importazione fallita, nessun dato modificato: {e}")
         else:
-            st.success("Dati importati correttamente.")
+            ui_common.imposta_messaggio_pendente("✅ Dati importati correttamente.")
+            st.session_state.pop("conferma_importa", None)
+            st.session_state["_contatore_upload_backup"] = _contatore_upload + 1
             st.rerun()
 
 st.divider()
@@ -69,5 +75,6 @@ st.error(
 conferma_reset = st.text_input("Scrivi AZZERA per abilitare il reset", key="conferma_reset")
 if st.button("🔄 Azzera tutte le partite", type="primary", disabled=conferma_reset != "AZZERA"):
     backup.reset_completo(conn)
-    st.success("Tutto azzerato: partite cancellate, giocatori tornati a Rk 1000.")
+    ui_common.imposta_messaggio_pendente("✅ Tutto azzerato: partite cancellate, giocatori tornati a Rk 1000.")
+    st.session_state.pop("conferma_reset", None)
     st.rerun()
