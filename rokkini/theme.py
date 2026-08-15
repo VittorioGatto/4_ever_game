@@ -22,6 +22,20 @@ div[data-testid="stDownloadButton"] > button:hover {
     color: #000000 !important;
 }
 
+/* i bottoni "primary" (es. Conferma e registra) di default hanno sfondo
+verde acceso e testo bianco: scarsamente leggibile e fuori tema rispetto
+al resto (sfondo nero, testo verde). Uniformati agli altri bottoni, con un
+bordo piu' spesso per restare comunque riconoscibili come azione principale. */
+div[data-testid="stButton"] > button[data-testid="stBaseButton-primary"] {
+    background-color: #000000 !important;
+    color: #00FF00 !important;
+    border: 3px solid #00FF00 !important;
+}
+div[data-testid="stButton"] > button[data-testid="stBaseButton-primary"]:hover {
+    background-color: #00FF00 !important;
+    color: #000000 !important;
+}
+
 div[data-testid="stDataFrame"], div[data-testid="stTable"] {
     border: 2px solid #00FF00 !important;
 }

@@ -196,12 +196,52 @@ def insert_partecipazione(conn, partita_id: int, giocatore_id: int, squadra: str
     )
 
 
+# Dimensione massima di un blocco per gli INSERT multi-riga qui sotto: con
+# Turso ogni query e' un round trip di rete, quindi inserire una riga alla
+# volta (come faceva prima questo modulo) e' lento quando le righe sono
+# centinaia — es. recompute_all su uno storico lungo. Il limite e' per
+# restare sotto il numero massimo di parametri bind che SQLite accetta in
+# un'unica query, non per prestazioni.
+_DIMENSIONE_BLOCCO_INSERT = 200
+
+
+def insert_partecipazioni_bulk(conn, righe: list[tuple[int, int, str]]) -> None:
+    """righe: (partita_id, giocatore_id, squadra). Usato da register_match/
+    edit_match per inserire tutti i partecipanti di una partita in una sola
+    query invece di una per giocatore."""
+    for i in range(0, len(righe), _DIMENSIONE_BLOCCO_INSERT):
+        blocco = righe[i : i + _DIMENSIONE_BLOCCO_INSERT]
+        segnaposto = ", ".join(["(?, ?, ?)"] * len(blocco))
+        valori = [v for riga in blocco for v in riga]
+        conn.execute(
+            f"INSERT INTO partecipazioni_partita (partita_id, giocatore_id, squadra) VALUES {segnaposto}",
+            valori,
+        )
+
+
 def fetch_partecipazioni(conn, partita_id: int) -> list[dict[str, Any]]:
     cur = conn.execute(
         "SELECT * FROM partecipazioni_partita WHERE partita_id = ? ORDER BY squadra, id",
         (partita_id,),
     )
     return rows_as_dicts(cur)
+
+
+def fetch_tutte_partecipazioni_non_annullate(conn) -> dict[int, list[dict[str, Any]]]:
+    """Le partecipazioni di tutte le partite non annullate, raggruppate per
+    partita_id: usato da recompute_all per evitare una query SELECT per
+    ogni partita dello storico (con Turso, centinaia di partite = centinaia
+    di round trip di rete evitabili con un'unica query)."""
+    cur = conn.execute(
+        """SELECT pp.* FROM partecipazioni_partita pp
+           JOIN partite p ON p.id = pp.partita_id
+           WHERE p.voided = 0
+           ORDER BY pp.partita_id, pp.squadra, pp.id"""
+    )
+    raggruppate: dict[int, list[dict[str, Any]]] = {}
+    for riga in rows_as_dicts(cur):
+        raggruppate.setdefault(riga["partita_id"], []).append(riga)
+    return raggruppate
 
 
 def fetch_partite_non_annullate(conn) -> list[dict[str, Any]]:
@@ -266,6 +306,25 @@ def insert_variazione(
             rk_dopo,
         ),
     )
+
+
+def insert_variazioni_bulk(conn, righe: list[tuple]) -> None:
+    """righe: (partita_id, giocatore_id, squadra, esito, rk_prima, k_usato,
+    probabilita_teorica, correttivo_usato, delta, rk_dopo). Usato da
+    recompute_all, che su uno storico lungo puo' generare centinaia di
+    variazioni: una query per riga significherebbe altrettanti round trip
+    di rete verso Turso."""
+    for i in range(0, len(righe), _DIMENSIONE_BLOCCO_INSERT):
+        blocco = righe[i : i + _DIMENSIONE_BLOCCO_INSERT]
+        segnaposto = ", ".join(["(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"] * len(blocco))
+        valori = [v for riga in blocco for v in riga]
+        conn.execute(
+            f"""INSERT INTO variazioni_rk
+                    (partita_id, giocatore_id, squadra, esito, rk_prima, k_usato,
+                     probabilita_teorica, correttivo_usato, delta, rk_dopo)
+                VALUES {segnaposto}""",
+            valori,
+        )
 
 
 def fetch_variazioni_per_giocatore(conn, giocatore_id: int) -> list[dict[str, Any]]:

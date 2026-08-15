@@ -83,10 +83,11 @@ def register_match(
             registered_by,
             sessione_id=sessione_id,
         )
-        for giocatore_id in squadra_a:
-            db.insert_partecipazione(conn, partita_id, giocatore_id, "A")
-        for giocatore_id in squadra_b:
-            db.insert_partecipazione(conn, partita_id, giocatore_id, "B")
+        db.insert_partecipazioni_bulk(
+            conn,
+            [(partita_id, gid, "A") for gid in squadra_a]
+            + [(partita_id, gid, "B") for gid in squadra_b],
+        )
         recompute_all(conn)
         conn.commit()
     except Exception:
@@ -134,10 +135,10 @@ def edit_match(
             replaces_match_id=partita_id,
             sessione_id=originale["sessione_id"],
         )
-        for giocatore_id in squadra_a:
-            db.insert_partecipazione(conn, nuova_id, giocatore_id, "A")
-        for giocatore_id in squadra_b:
-            db.insert_partecipazione(conn, nuova_id, giocatore_id, "B")
+        db.insert_partecipazioni_bulk(
+            conn,
+            [(nuova_id, gid, "A") for gid in squadra_a] + [(nuova_id, gid, "B") for gid in squadra_b],
+        )
         recompute_all(conn)
         conn.commit()
     except Exception:
@@ -154,17 +155,24 @@ def recompute_all(conn) -> None:
     "affetto" da una modifica: alla scala di un gruppo di amici il replay e'
     computazionalmente banale ed e' corretto per costruzione, perche' non
     esiste logica separata su "quali partite sono affette" che possa avere
-    bug — l'algoritmo rigioca semplicemente tutta la storia.
-    """
+    bug — l'algoritmo rigioca semplicemente tutta la storia. Le letture e
+    scritture verso il DB sono pero' raggruppate in poche query invece di
+    una per partita/variazione: con Turso ogni query e' un round trip di
+    rete, e uno storico di centinaia di partite renderebbe altrimenti
+    questa funzione (richiamata a ogni registrazione/annullamento/
+    correzione) lenta in modo percepibile."""
     giocatori = db.fetch_giocatori(conn)
     stato: dict[int, GiocatoreState] = {g["id"]: GiocatoreState() for g in giocatori}
     sospeso_map = {g["id"]: bool(g["sospeso"]) for g in giocatori}
 
     db.delete_tutte_variazioni_e_leader_log(conn)
 
+    partecipazioni_per_partita = db.fetch_tutte_partecipazioni_non_annullate(conn)
+    righe_variazioni: list[tuple] = []
+
     leader_corrente: int | None = None
     for partita in db.fetch_partite_non_annullate(conn):
-        partecipazioni = db.fetch_partecipazioni(conn, partita["id"])
+        partecipazioni = partecipazioni_per_partita.get(partita["id"], [])
         squadra_a_ids = [p["giocatore_id"] for p in partecipazioni if p["squadra"] == "A"]
         squadra_b_ids = [p["giocatore_id"] for p in partecipazioni if p["squadra"] == "B"]
 
@@ -180,23 +188,26 @@ def recompute_all(conn) -> None:
 
         for delta in deltas_a + deltas_b:
             stato[delta.player_id].applica(delta)
-            db.insert_variazione(
-                conn,
-                partita["id"],
-                delta.player_id,
-                delta.squadra,
-                delta.esito,
-                delta.rk_prima,
-                delta.k_usato,
-                delta.probabilita_teorica,
-                delta.correttivo_usato,
-                delta.delta,
-                delta.rk_dopo,
+            righe_variazioni.append(
+                (
+                    partita["id"],
+                    delta.player_id,
+                    delta.squadra,
+                    delta.esito,
+                    delta.rk_prima,
+                    delta.k_usato,
+                    delta.probabilita_teorica,
+                    delta.correttivo_usato,
+                    delta.delta,
+                    delta.rk_dopo,
+                )
             )
 
         leader_corrente = _aggiorna_leader_log(
             conn, stato, sospeso_map, leader_corrente, partita["data_partita"]
         )
+
+    db.insert_variazioni_bulk(conn, righe_variazioni)
 
     for giocatore_id, s in stato.items():
         db.update_giocatore_stato(
