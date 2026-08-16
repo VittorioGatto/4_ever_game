@@ -42,9 +42,9 @@ def apply_schema(conn) -> None:
 
 
 @st.cache_resource
-def get_connection():
-    """Connessione cacheata per l'app Streamlit: usa Turso se configurato nei
-    secrets, altrimenti il file locale (nessun secrets.toml in sviluppo)."""
+def _connessione_cacheata():
+    """Usa Turso se configurato nei secrets, altrimenti il file locale
+    (nessun secrets.toml in sviluppo)."""
     try:
         turso_cfg = st.secrets.get("turso")
     except st.errors.StreamlitSecretNotFoundError:
@@ -52,6 +52,25 @@ def get_connection():
     if turso_cfg:
         return connect(turso_cfg["database_url"], turso_cfg["auth_token"])
     return connect()
+
+
+def get_connection():
+    """Connessione cacheata per l'app Streamlit, con un controllo di salute
+    a ogni run dello script. Turso (protocollo Hrana) chiude lo stream della
+    connessione lato server dopo un periodo di inattivita': una connessione
+    cacheata riutilizzata dopo quell'idle time fallisce ogni query con
+    "stream not found", e con @st.cache_resource questo blocca l'intera app
+    per tutti gli utenti finche' il processo non viene riavviato. Per questo
+    la connessione viene verificata con una query innocua prima di essere
+    restituita: se lo stream e' morto, la cache viene scartata e se ne apre
+    una nuova (nuovo stream Hrana)."""
+    conn = _connessione_cacheata()
+    try:
+        conn.execute("SELECT 1")
+    except Exception:
+        _connessione_cacheata.clear()
+        conn = _connessione_cacheata()
+    return conn
 
 
 def rows_as_dicts(cursor) -> list[dict[str, Any]]:
