@@ -29,7 +29,7 @@ def _mostra_regolamento(percorso: Path) -> None:
     st.caption(titolo_documento)
     for titolo, corpo in sezioni:
         with st.expander(titolo):
-            st.text(corpo)
+            st.markdown(corpo)
 
 
 with st.container(border=True):

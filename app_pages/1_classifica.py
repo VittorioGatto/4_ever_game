@@ -7,7 +7,7 @@ conn = db.get_connection()
 
 st.title("🏆 Classifica")
 
-fascia = st.radio("Fascia", ["Tutti", "A", "B", "C", "H"], horizontal=True)
+fascia = st.radio("Fascia", ["Tutti", "A", "B", "C", "D", "H"], horizontal=True)
 ranking = stats.fetch_ranking(conn, fascia=fascia)
 
 if ranking.height == 0:

@@ -32,7 +32,7 @@ class PlayerDelta:
 
 def k_factor(matches_played: int) -> int:
     for soglia, k in K_FACTOR_SOGLIE:
-        if matches_played + 1 >= soglia:
+        if matches_played >= soglia:
             return k
     raise ValueError(f"matches_played negativo: {matches_played}")
 

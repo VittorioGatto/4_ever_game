@@ -2,6 +2,7 @@ import libsql
 import pytest
 
 from rokkini import backup, db, rating_engine
+from rokkini.constants import RK_INIZIALE
 
 
 def crea_giocatori(conn, n: int, prefisso: str = "P") -> list[int]:
@@ -115,7 +116,10 @@ def test_reset_completo_azzera_partite_e_statistiche(conn, admin_id):
 
     assert len(db.fetch_partite_tutte(conn)) == 2
     giocatore_dopo_partite = db.fetch_giocatore(conn, p[0])
-    assert giocatore_dopo_partite["rk_attuale"] != 1000 or giocatore_dopo_partite["partite_giocate"] != 0
+    assert (
+        giocatore_dopo_partite["rk_attuale"] != RK_INIZIALE
+        or giocatore_dopo_partite["partite_giocate"] != 0
+    )
 
     backup.reset_completo(conn)
 
@@ -124,11 +128,11 @@ def test_reset_completo_azzera_partite_e_statistiche(conn, admin_id):
     giocatori_dopo_reset = db.fetch_giocatori(conn)
     assert len(giocatori_dopo_reset) == 6  # i giocatori come account restano
     for g in giocatori_dopo_reset:
-        assert g["rk_attuale"] == 1000
+        assert g["rk_attuale"] == RK_INIZIALE
         assert g["partite_giocate"] == 0
         assert g["vittorie"] == 0
         assert g["sconfitte"] == 0
-        assert g["rk_record"] == 1000
+        assert g["rk_record"] == RK_INIZIALE
         assert g["streak_vittorie_corrente"] == 0
         assert g["streak_vittorie_record"] == 0
 
@@ -187,7 +191,7 @@ def test_import_csv_congela_rk_anche_se_la_logica_cambia(conn, admin_id, monkeyp
     righe_partite = backup.export_partite_csv(conn)
     rk_congelato = {r["nome"]: int(r["rk_attuale"]) for r in righe_giocatori}
 
-    monkeypatch.setattr("rokkini.elo.K_FACTOR_SOGLIE", [(1, 999)])
+    monkeypatch.setattr("rokkini.elo.K_FACTOR_SOGLIE", [(0, 999)])
 
     backup.import_csv(conn, righe_giocatori, righe_partite, admin_id)
 

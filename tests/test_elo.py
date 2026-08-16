@@ -13,26 +13,32 @@ from rokkini.elo import (
 
 
 def test_k_factor_soglie():
-    assert k_factor(0) == 50  # prima partita
-    assert k_factor(4) == 50  # quinta partita
-    assert k_factor(5) == 40  # sesta partita
-    assert k_factor(13) == 40  # quattordicesima
-    assert k_factor(14) == 32  # quindicesima
-    assert k_factor(24) == 32  # venticinquesima
-    assert k_factor(25) == 24  # ventiseiesima
-    assert k_factor(39) == 24  # quarantesima
-    assert k_factor(40) == 16  # quarantunesima
-    assert k_factor(1000) == 16
+    assert k_factor(0) == 55  # prima partita (0 gia' disputate)
+    assert k_factor(4) == 55  # quinta partita
+    assert k_factor(5) == 45  # sesta partita
+    assert k_factor(9) == 45
+    assert k_factor(10) == 38
+    assert k_factor(19) == 38
+    assert k_factor(20) == 33
+    assert k_factor(29) == 33
+    assert k_factor(30) == 29
+    assert k_factor(44) == 29
+    assert k_factor(45) == 26
+    assert k_factor(64) == 26
+    assert k_factor(65) == 24
+    assert k_factor(1000) == 24
 
 
 def test_tier_for_rk():
     assert tier_for_rk(0) == "H"
-    assert tier_for_rk(1199) == "H"
-    assert tier_for_rk(1200) == "C"
-    assert tier_for_rk(1499) == "C"
-    assert tier_for_rk(1500) == "B"
-    assert tier_for_rk(1799) == "B"
-    assert tier_for_rk(1800) == "A"
+    assert tier_for_rk(1100) == "H"
+    assert tier_for_rk(1101) == "D"
+    assert tier_for_rk(1200) == "D"
+    assert tier_for_rk(1201) == "C"
+    assert tier_for_rk(1300) == "C"
+    assert tier_for_rk(1301) == "B"
+    assert tier_for_rk(1400) == "B"
+    assert tier_for_rk(1401) == "A"
     assert tier_for_rk(2500) == "A"
 
 
@@ -53,21 +59,21 @@ def test_win_probability_complementary():
 
 
 def test_individual_correction_clamped():
-    assert individual_correction(1400, 1600) == pytest.approx(-0.20)
+    assert individual_correction(1400, 1600) == pytest.approx(-0.05)
     assert individual_correction(1400, 1400) == pytest.approx(0.0)
-    assert individual_correction(1400, 1200) == pytest.approx(0.20)
-    # differenza enorme: il correttivo resta comunque clampato a +-0.20
-    assert individual_correction(1000, 3000) == pytest.approx(-0.20)
-    assert individual_correction(3000, 1000) == pytest.approx(0.20)
+    assert individual_correction(1400, 1200) == pytest.approx(0.05)
+    # differenza enorme: il correttivo resta comunque clampato a +-0.05
+    assert individual_correction(1000, 3000) == pytest.approx(-0.05)
+    assert individual_correction(3000, 1000) == pytest.approx(0.05)
 
 
-def test_regolamento_esempio_10_3():
-    """Esempio del regolamento (sezione 10.3): squadra 1600/1400/1200 Rk,
-    media 1400, vittoria con variazione base di circa +15 Rk per tutti
-    (stesso K per i tre giocatori in questo esempio)."""
+def test_regolamento_esempio_correttivo():
+    """Esempio del regolamento (sezione 4): squadra 1600/1400/1200 Rk, media
+    1400, vittoria con variazione base di circa +15 Rk per tutti (stesso K
+    per i tre giocatori in questo esempio), rifinita dal correttivo max ±5%."""
     team_avg = 1400
     delta_base = 15
-    rk_values_and_expected = [(1600, 12), (1400, 15), (1200, 18)]
+    rk_values_and_expected = [(1600, 14), (1400, 15), (1200, 16)]
     for rk, expected_delta in rk_values_and_expected:
         c = individual_correction(team_avg, rk)
         delta_finale = round_half_away_from_zero(delta_base * (1 + c))
@@ -105,7 +111,7 @@ def test_compute_match_deltas_underdog_win_gains_more():
     # squadre da 1 giocatore solo per isolare l'effetto della probabilità,
     # senza correttivo individuale (team_avg == player_rk => C=0)
     _, deltas_underdog_win = compute_match_deltas(favourite, underdog, winner="B")
-    assert deltas_underdog_win[0].delta > 16  # supera il guadagno "alla pari" (K=32 qui: 16)
+    assert deltas_underdog_win[0].delta > 19  # supera il guadagno "alla pari" (K=38 qui: 19)
 
 
 def test_individual_correction_favours_weaker_teammate_on_loss():

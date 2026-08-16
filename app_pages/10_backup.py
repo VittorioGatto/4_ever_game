@@ -4,7 +4,8 @@ from datetime import datetime
 
 import streamlit as st
 
-from rokkini import auth, backup, db, ui_common
+from rokkini import auth, backup, db, rating_engine, ui_common
+from rokkini.constants import RK_INIZIALE
 
 conn = db.get_connection()
 auth.require_role(conn, "super_admin")
@@ -93,17 +94,47 @@ if file_giocatori is not None and file_partite is not None:
 
 st.divider()
 
+st.subheader("🔁 Ricalcola tutti gli Rk")
+st.caption(
+    "Rigioca l'intero storico partite con la logica di calcolo attualmente in uso nel "
+    "codice (K-factor, correttivo, Rk iniziale, fasce), riscrivendo Rk, statistiche e "
+    "fasce di ogni giocatore. Usalo dopo aver modificato le regole di calcolo, per "
+    "aggiornare i risultati alle partite già giocate. Non tocca le partite stesse "
+    "(nessuna viene persa o modificata), solo Rk/statistiche derivate. Scarica un "
+    "backup qui sopra prima di procedere."
+)
+conferma_ricalcola = st.text_input(
+    "Scrivi RICALCOLA per abilitare il ricalcolo", key="conferma_ricalcola"
+)
+if st.button(
+    "🔁 Ricalcola con la logica attuale", type="primary", disabled=conferma_ricalcola != "RICALCOLA"
+):
+    try:
+        rating_engine.recompute_all(conn)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Ricalcolo fallito, nessun dato modificato: {e}")
+    else:
+        ui_common.imposta_messaggio_pendente("✅ Rk e statistiche ricalcolati con la logica attuale.")
+        st.session_state.pop("conferma_ricalcola", None)
+        st.rerun()
+
+st.divider()
+
 st.subheader("🔄 Reset completo")
 st.error(
-    "⚠️ Cancella TUTTE le partite e le sessioni di gioco (storico e Rk guadagnati/persi), e "
-    "riporta ogni giocatore ai valori di partenza: Rk 1000, zero partite/vittorie/sconfitte. "
-    "Giocatori e utenti restano (stessi nomi, stesse credenziali), solo le statistiche "
-    "ripartono da zero. Non è reversibile: se vuoi poterci tornare, scarica prima un backup "
-    "qui sopra."
+    f"⚠️ Cancella TUTTE le partite e le sessioni di gioco (storico e Rk guadagnati/persi), e "
+    f"riporta ogni giocatore ai valori di partenza: Rk {RK_INIZIALE}, zero partite/vittorie/sconfitte. "
+    f"Giocatori e utenti restano (stessi nomi, stesse credenziali), solo le statistiche "
+    f"ripartono da zero. Non è reversibile: se vuoi poterci tornare, scarica prima un backup "
+    f"qui sopra."
 )
 conferma_reset = st.text_input("Scrivi AZZERA per abilitare il reset", key="conferma_reset")
 if st.button("🔄 Azzera tutte le partite", type="primary", disabled=conferma_reset != "AZZERA"):
     backup.reset_completo(conn)
-    ui_common.imposta_messaggio_pendente("✅ Tutto azzerato: partite cancellate, giocatori tornati a Rk 1000.")
+    ui_common.imposta_messaggio_pendente(
+        f"✅ Tutto azzerato: partite cancellate, giocatori tornati a Rk {RK_INIZIALE}."
+    )
     st.session_state.pop("conferma_reset", None)
     st.rerun()

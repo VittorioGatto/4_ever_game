@@ -17,11 +17,13 @@ Non esistono squadre fisse: ogni giocatore possiede una propria posizione in cla
 
 La forza di ogni giocatore è rappresentata dai Rokkini, abbreviati Rk.
 
-Ogni nuovo giocatore parte da 1.000 Rk e deve disputare 5 partite di qualificazione prima di comparire nella classifica ufficiale.
+Ogni nuovo giocatore parte da **1.250 Rk** (il centro esatto della Fascia C, vedi sotto) e deve disputare 5 partite di qualificazione prima di comparire nella classifica ufficiale.
 
 Durante queste 5 partite gli Rk vengono già calcolati normalmente. Al termine della quinta partita, il giocatore entra nel ranking con il punteggio raggiunto.
 
-Il ranking è continuo: non esistono stagioni e gli Rk non vengono azzerati periodicamente.
+Partire dal centro della classifica, invece che dal fondo, permette al sistema di determinare il livello reale di un nuovo giocatore in entrambe le direzioni fin da subito.
+
+Il ranking è continuo: non esistono stagioni e gli Rk non vengono azzerati periodicamente. Non c'è alcuna perdita di Rk per inattività.
 
 Il sistema è strutturato in modo che il numero di partite disputate non influenzi eccessivamente la posizione in classifica. Giocare più spesso non garantisce automaticamente una posizione migliore: ciò che conta principalmente sono i risultati ottenuti e il livello degli avversari affrontati.
 
@@ -29,17 +31,21 @@ Il sistema è strutturato in modo che il numero di partite disputate non influen
 
 3. Fasce di livello
 
-In base agli Rk posseduti, ogni giocatore appartiene a una delle quattro fasce:
+In base agli Rk posseduti, ogni giocatore appartiene a una delle cinque fasce:
 
-Fascia| Rk
-H| 0 – 1.199
-C| 1.200 – 1.499
-B| 1.500 – 1.799
-A| 1.800+
+| Fascia | Rk |
+|---|---|
+| H | 0 – 1.100 |
+| D | 1.101 – 1.200 |
+| C | 1.201 – 1.300 |
+| B | 1.301 – 1.400 |
+| A | 1.401+ |
 
 La progressione è:
 
-H → C → B → A
+H ← D ← **C** → B → A
+
+C è il punto di partenza e il livello centrale. D e B rappresentano gli spostamenti "ordinari" sotto e sopra la media. H e A sono fasce più selettive: identificano giocatori il cui livello si è dimostrato realmente distante dalla media, attraverso un numero sufficiente di risultati (non bastano poche partite fortunate o sfortunate).
 
 La fascia cambia automaticamente al raggiungimento delle relative soglie.
 
@@ -49,22 +55,50 @@ Il giocatore con il maggior numero di Rk occupa la posizione di N. 1 del Ranking
 
 4. Guadagno e perdita degli Rk
 
-Gli Rk vengono assegnati attraverso un sistema derivato dall'Elo, che tiene conto della forza delle due squadre.
+Gli Rk vengono assegnati attraverso un sistema derivato dall'Elo, che tiene conto della forza media delle due squadre (non del singolo giocatore contro la media avversaria: confrontare ogni giocatore alla media della squadra avversaria comprimerebbe troppo il ranking verso il valore iniziale, spingendo i più forti verso il basso e i più deboli verso l'alto).
 
-Prima di ogni partita viene confrontata la media Rk delle due formazioni.
+**Passo 1 — probabilità di vittoria.** Confrontata la media Rk delle due squadre ($R_A$ ed $R_B$), la probabilità teorica che la squadra A vinca è:
 
-In generale:
+$$E_A = \dfrac{1}{1 + 10^{(R_B - R_A)/400}}$$
+
+**Passo 2 — variazione di base.** Per ogni giocatore, in base al risultato reale della partita ($S = 1$ se ha vinto, $S = 0$ se ha perso):
+
+$$\Delta Rk = K \cdot (S - E)$$
+
+In generale questo significa che:
 
 - battere una squadra più forte fa guadagnare più Rk;
 - battere una squadra più debole fa guadagnare meno Rk;
 - perdere contro una squadra più forte fa perdere meno Rk;
 - perdere contro una squadra più debole fa perdere più Rk.
 
-Viene inoltre applicato un piccolo correttivo individuale basato sul livello del giocatore rispetto ai propri compagni.
+**Il coefficiente K** determina quanto rapidamente può cambiare il rating di un giocatore, in base al numero di partite già disputate prima di quella corrente: un giocatore nuovo ha un rating ancora poco affidabile e deve potersi muovere in fretta; con l'esperienza il rating diventa più stabile, ma K non scende mai sotto 24 (nessuno resta mai "bloccato" al livello raggiunto).
 
-Un giocatore con Rk inferiori alla media della propria squadra viene leggermente premiato in caso di vittoria e maggiormente protetto in caso di sconfitta. Per un giocatore con Rk superiori alla media della propria squadra avviene il contrario.
+| Partite già disputate | K |
+|---|---|
+| 0 – 4 | 55 |
+| 5 – 9 | 45 |
+| 10 – 19 | 38 |
+| 20 – 29 | 33 |
+| 30 – 44 | 29 |
+| 45 – 64 | 26 |
+| 65+ | 24 |
 
-Il correttivo rimane comunque limitato, in modo che il risultato della partita resti il fattore principale nell'assegnazione degli Rk.
+**Passo 3 — correttivo individuale.** Viene applicato un piccolo correttivo basato sul livello del giocatore rispetto ai propri compagni, con un massimo di **±5%**:
+
+$$c = \frac{\overline{R}_{squadra} - R_{giocatore}}{1000} \quad \text{(clampato tra } -0{,}05 \text{ e } +0{,}05\text{)}$$
+
+Un giocatore con Rk inferiore alla media della propria squadra viene leggermente premiato in caso di vittoria ($\Delta Rk$ moltiplicato per $1+c$) e maggiormente protetto in caso di sconfitta ($\Delta Rk$ moltiplicato per $1-c$). Per un giocatore con Rk superiore alla media della propria squadra avviene il contrario.
+
+Con un massimo del ±5% il correttivo resta un dettaglio di rifinitura: il risultato della partita, tramite $K$ ed $E$, è nettamente il fattore principale nell'assegnazione degli Rk.
+
+**Riassunto in tre livelli:**
+
+1. il risultato della partita determina la variazione Elo, in base alla forza delle due squadre;
+2. l'esperienza del giocatore (il coefficiente K) determina quanto velocemente i suoi Rk possono cambiare;
+3. la posizione individuale nella squadra (il correttivo, max ±5%) rifinisce la variazione.
+
+3v3 e 4v4 usano lo stesso identico calcolo: cambia solo il numero di giocatori con cui si calcola la media della squadra.
 
 ---
 

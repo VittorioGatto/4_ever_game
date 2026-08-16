@@ -12,8 +12,30 @@ from datetime import datetime
 from typing import Any
 
 from rokkini import db, rating_engine
+from rokkini.constants import RK_INIZIALE
+from rokkini.elo import tier_for_rk
 
 VERSIONE_FORMATO = 1
+
+
+def _reset_giocatori(conn) -> None:
+    """Riporta ogni giocatore ai valori di partenza correnti (RK_INIZIALE e
+    la fascia che gli corrisponde), non a 1000/'H' fissi: se la logica di
+    calcolo cambia (es. Rk iniziale spostato), un reset/ripristino deve
+    ripartire dal punto di partenza attuale, non da uno vecchio."""
+    conn.execute(
+        """UPDATE giocatori SET
+            rk_attuale = ?,
+            partite_giocate = 0,
+            vittorie = 0,
+            sconfitte = 0,
+            fascia_attuale = ?,
+            qualificato = 0,
+            rk_record = ?,
+            streak_vittorie_corrente = 0,
+            streak_vittorie_record = 0""",
+        (RK_INIZIALE, tier_for_rk(RK_INIZIALE), RK_INIZIALE),
+    )
 
 # Ordine valido per gli INSERT (rispetta le foreign key: ogni tabella
 # referenzia solo tabelle che la precedono). Il DELETE in fase di import usa
@@ -127,18 +149,7 @@ def import_csv(conn, righe_giocatori: list[dict[str, Any]], righe_partite: list[
     try:
         for nome_tabella in TABELLE_STORICO:
             conn.execute(f"DELETE FROM {nome_tabella}")
-        conn.execute(
-            """UPDATE giocatori SET
-                rk_attuale = 1000,
-                partite_giocate = 0,
-                vittorie = 0,
-                sconfitte = 0,
-                fascia_attuale = 'H',
-                qualificato = 0,
-                rk_record = 1000,
-                streak_vittorie_corrente = 0,
-                streak_vittorie_record = 0"""
-        )
+        _reset_giocatori(conn)
 
         id_per_nome = {g["nome"]: g["id"] for g in db.fetch_giocatori(conn)}
         for riga in righe_giocatori:
@@ -209,18 +220,7 @@ def reset_completo(conn) -> None:
     try:
         for nome_tabella in TABELLE_STORICO:
             conn.execute(f"DELETE FROM {nome_tabella}")
-        conn.execute(
-            """UPDATE giocatori SET
-                rk_attuale = 1000,
-                partite_giocate = 0,
-                vittorie = 0,
-                sconfitte = 0,
-                fascia_attuale = 'H',
-                qualificato = 0,
-                rk_record = 1000,
-                streak_vittorie_corrente = 0,
-                streak_vittorie_record = 0"""
-        )
+        _reset_giocatori(conn)
         conn.commit()
     except Exception:
         conn.rollback()

@@ -1,5 +1,5 @@
 from rokkini import db, rating_engine, stats
-from rokkini.constants import PARTITE_QUALIFICAZIONE
+from rokkini.constants import PARTITE_QUALIFICAZIONE, RK_INIZIALE
 
 
 def crea_giocatori(conn, n: int, prefisso: str = "P") -> list[int]:
@@ -34,7 +34,7 @@ def test_player_profile_storico_rk_include_punto_iniziale(conn, admin_id):
     rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
     profilo = stats.fetch_player_profile(conn, p[0])
     assert profilo is not None
-    assert profilo["storico_rk"]["rk"][0] == 1000
+    assert profilo["storico_rk"]["rk"][0] == RK_INIZIALE
     assert profilo["storico_rk"].height == 2  # punto iniziale + una partita
 
 
@@ -73,7 +73,7 @@ def test_records_rk_piu_alto(conn, admin_id):
     p = crea_giocatori(conn, 6)
     rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
     record = stats.fetch_records(conn)
-    assert record["rk_piu_alto"]["valore"] == 1025
+    assert record["rk_piu_alto"]["valore"] == 1278
 
 
 def test_record_stupidi_su_db_vuoto_non_esplode(conn):
@@ -92,7 +92,7 @@ def test_record_stupidi_rimonta_e_tonfo_sono_lo_stesso_delta_di_specchio(conn, a
     rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
     record = stats.fetch_record_stupidi(conn)
     # in una partita 3v3 tutti i vincitori/perdenti hanno lo stesso Rk di
-    # partenza (1000), quindi lo stesso delta: qui basta verificare segno e
+    # partenza, quindi lo stesso delta: qui basta verificare segno e
     # coerenza reciproca (il tonfo e' il negativo esatto della rimonta).
     assert record["rimonta_clamorosa"]["valore"] > 0
     assert record["tonfo_doloroso"]["valore"] == -record["rimonta_clamorosa"]["valore"]

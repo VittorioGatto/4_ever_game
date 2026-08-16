@@ -1,5 +1,5 @@
 from rokkini import db, rating_engine
-from rokkini.constants import PARTITE_QUALIFICAZIONE
+from rokkini.constants import PARTITE_QUALIFICAZIONE, RK_INIZIALE
 
 
 def crea_giocatori(conn, n: int, prefisso: str = "P") -> list[int]:
@@ -13,11 +13,11 @@ def test_registrazione_sequenziale_aggiorna_rk_e_partite(conn, admin_id):
     )
     giocatori = {g["id"]: g for g in db.fetch_giocatori(conn)}
     for gid in p[0:3]:
-        assert giocatori[gid]["rk_attuale"] == 1025  # squadre pari, K=50, P=0.5 -> +25
+        assert giocatori[gid]["rk_attuale"] == 1278  # squadre pari, K=55, P=0.5 -> +27.5 -> +28
         assert giocatori[gid]["vittorie"] == 1
         assert giocatori[gid]["partite_giocate"] == 1
     for gid in p[3:6]:
-        assert giocatori[gid]["rk_attuale"] == 975
+        assert giocatori[gid]["rk_attuale"] == 1222
         assert giocatori[gid]["sconfitte"] == 1
 
     # seconda partita: rk_prima memorizzato deve combaciare col rk_attuale post-prima-partita
@@ -27,9 +27,9 @@ def test_registrazione_sequenziale_aggiorna_rk_e_partite(conn, admin_id):
     variazioni = db.fetch_variazioni_per_partita(conn, seconda_partita_id)
     for v in variazioni:
         if v["giocatore_id"] in p[0:3]:
-            assert v["rk_prima"] == 1025
+            assert v["rk_prima"] == 1278
         else:
-            assert v["rk_prima"] == 975
+            assert v["rk_prima"] == 1222
 
 
 def test_void_match_ricalcola_come_se_non_fosse_mai_avvenuta(conn, admin_id):
@@ -41,7 +41,7 @@ def test_void_match_ricalcola_come_se_non_fosse_mai_avvenuta(conn, admin_id):
         conn, "2026-01-02", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id
     )
     rk_prima_del_void = {g["id"]: g["rk_attuale"] for g in db.fetch_giocatori(conn)}
-    assert rk_prima_del_void[p[0]] != 1000  # ha gia' giocato
+    assert rk_prima_del_void[p[0]] != RK_INIZIALE  # ha gia' giocato
 
     rating_engine.void_match(conn, m1, admin_id, "risultato errato")
 
@@ -49,7 +49,7 @@ def test_void_match_ricalcola_come_se_non_fosse_mai_avvenuta(conn, admin_id):
     giocatori = {g["id"]: g for g in db.fetch_giocatori(conn)}
     for gid in p[0:3]:
         assert giocatori[gid]["partite_giocate"] == 1  # solo la seconda partita conta ancora
-        assert giocatori[gid]["rk_attuale"] == 1025  # ricalcolato come fosse la prima e unica
+        assert giocatori[gid]["rk_attuale"] == 1278  # ricalcolato come fosse la prima e unica
 
 
 def test_edit_match_sostituisce_la_partita_mantenendo_la_data(conn, admin_id):
@@ -71,9 +71,9 @@ def test_edit_match_sostituisce_la_partita_mantenendo_la_data(conn, admin_id):
 
     giocatori = {g["id"]: g for g in db.fetch_giocatori(conn)}
     for gid in p[0:3]:
-        assert giocatori[gid]["rk_attuale"] == 975  # ora hanno perso, non vinto
+        assert giocatori[gid]["rk_attuale"] == 1222  # ora hanno perso, non vinto
     for gid in p[3:6]:
-        assert giocatori[gid]["rk_attuale"] == 1025
+        assert giocatori[gid]["rk_attuale"] == 1278
 
 
 def test_qualificazione_dopo_partite_di_qualificazione(conn, admin_id):
@@ -102,7 +102,7 @@ def test_qualificazione_dopo_partite_di_qualificazione(conn, admin_id):
 def test_k_factor_cambia_a_soglie_partite(conn, admin_id):
     protagonista = crea_giocatori(conn, 1)[0]
     k_attesi = []
-    for i in range(15):  # 15 partite: la quindicesima deve usare K=32 (scaglione 15-25)
+    for i in range(15):  # 15 partite: attraversa gli scaglioni 0-4, 5-9, 10-19
         compagni = crea_giocatori(conn, 2, prefisso=f"C{i}_")
         avversari = crea_giocatori(conn, 3, prefisso=f"D{i}_")
         m_id = rating_engine.register_match(
@@ -118,9 +118,9 @@ def test_k_factor_cambia_a_soglie_partite(conn, admin_id):
         variazioni = db.fetch_variazioni_per_partita(conn, m_id)
         k_usato = next(v["k_usato"] for v in variazioni if v["giocatore_id"] == protagonista)
         k_attesi.append(k_usato)
-    assert k_attesi[0:5] == [50] * 5
-    assert k_attesi[5:14] == [40] * 9
-    assert k_attesi[14] == 32
+    assert k_attesi[0:5] == [55] * 5
+    assert k_attesi[5:10] == [45] * 5
+    assert k_attesi[10:15] == [38] * 5
 
 
 def test_void_produce_effetto_a_catena_oltre_i_giocatori_originali(conn, admin_id):
@@ -148,18 +148,24 @@ def test_void_produce_effetto_a_catena_oltre_i_giocatori_originali(conn, admin_i
         conn, "2026-02-01", "3v3", "2-0", "A", [p4, p7, p8], [p9, p10, p11], admin_id
     )
     variazioni_prima = {
-        v["giocatore_id"]: v["rk_dopo"] for v in db.fetch_variazioni_per_partita(conn, m2)
+        v["giocatore_id"]: v["probabilita_teorica"]
+        for v in db.fetch_variazioni_per_partita(conn, m2)
     }
 
     rating_engine.void_match(conn, matches_precedenti[0], admin_id, "test cascata")
 
     variazioni_dopo = {
-        v["giocatore_id"]: v["rk_dopo"] for v in db.fetch_variazioni_per_partita(conn, m2)
+        v["giocatore_id"]: v["probabilita_teorica"]
+        for v in db.fetch_variazioni_per_partita(conn, m2)
     }
 
     # p4 ha ora un deficit di Rk minore (una sconfitta in meno prima del match
-    # successivo): la media della sua squadra cambia, quindi cambiano anche i
-    # delta di p7/p8 (compagni) e p9/p10/p11 (avversari), pur non avendo mai
-    # incontrato nessuno delle partite annullate.
+    # successivo): la media della sua squadra cambia, quindi cambia anche la
+    # probabilita' teorica di vittoria calcolata per p7/p8 (compagni) e
+    # p9/p10/p11 (avversari), pur non avendo mai incontrato nessuno delle
+    # partite annullate. Si confronta la probabilita' (un float continuo)
+    # invece del delta Rk arrotondato all'intero, che con un correttivo
+    # individuale piccolo (max +-5%) puo' arrotondare allo stesso valore pur
+    # partendo da un calcolo leggermente diverso.
     for giocatore_id in (p7, p8, p9, p10, p11):
         assert variazioni_prima[giocatore_id] != variazioni_dopo[giocatore_id]
