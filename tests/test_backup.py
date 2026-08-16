@@ -133,6 +133,86 @@ def test_reset_completo_azzera_partite_e_statistiche(conn, admin_id):
         assert g["streak_vittorie_record"] == 0
 
 
+def test_export_csv_contiene_le_partite_vinte_e_i_rk(conn, admin_id):
+    p = crea_giocatori(conn, 6, "J")
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+
+    righe_giocatori = backup.export_giocatori_csv(conn)
+    righe_partite = backup.export_partite_csv(conn)
+
+    assert len(righe_giocatori) == 6
+    assert all(r["data_esportazione"] for r in righe_giocatori)
+    assert len(righe_partite) == 1
+    partita = righe_partite[0]
+    assert partita["squadra_vincente"] == "A"
+    assert set(partita["squadra_a"].split(";")) == {"J1", "J2", "J3"}
+    assert set(partita["squadra_b"].split(";")) == {"J4", "J5", "J6"}
+    assert partita["data_esportazione"]
+
+
+def test_export_csv_esclude_partite_annullate(conn, admin_id):
+    p = crea_giocatori(conn, 6, "K")
+    partita_id = rating_engine.register_match(
+        conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id
+    )
+    rating_engine.void_match(conn, partita_id, admin_id, "test")
+
+    assert backup.export_partite_csv(conn) == []
+
+
+def test_round_trip_csv_ripristina_partite_e_rk(conn, admin_id):
+    p = crea_giocatori(conn, 6, "L")
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-02", "3v3", "1-2", "B", p[0:3], p[3:6], admin_id)
+
+    righe_giocatori = backup.export_giocatori_csv(conn)
+    righe_partite = backup.export_partite_csv(conn)
+    rk_atteso = {r["nome"]: r["rk_attuale"] for r in righe_giocatori}
+
+    backup.import_csv(conn, righe_giocatori, righe_partite, admin_id)
+
+    giocatori_dopo = {g["nome"]: g["rk_attuale"] for g in db.fetch_giocatori(conn)}
+    assert giocatori_dopo == rk_atteso
+    assert len(db.fetch_partite_non_annullate(conn)) == 2
+
+
+def test_import_csv_congela_rk_anche_se_la_logica_cambia(conn, admin_id, monkeypatch):
+    """Se il K-factor cambia dopo l'esportazione, il replay delle partite
+    durante il ripristino produrrebbe Rk diversi da quelli esportati: il Rk
+    "ufficiale" deve restare quello congelato nel file giocatori."""
+    p = crea_giocatori(conn, 6, "M")
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+
+    righe_giocatori = backup.export_giocatori_csv(conn)
+    righe_partite = backup.export_partite_csv(conn)
+    rk_congelato = {r["nome"]: int(r["rk_attuale"]) for r in righe_giocatori}
+
+    monkeypatch.setattr("rokkini.elo.K_FACTOR_SOGLIE", [(1, 999)])
+
+    backup.import_csv(conn, righe_giocatori, righe_partite, admin_id)
+
+    giocatori_dopo = {g["nome"]: g["rk_attuale"] for g in db.fetch_giocatori(conn)}
+    assert giocatori_dopo == rk_congelato
+
+
+def test_import_csv_crea_giocatori_mancanti(conn, admin_id):
+    p = crea_giocatori(conn, 6, "N")
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+    righe_giocatori = backup.export_giocatori_csv(conn)
+    righe_partite = backup.export_partite_csv(conn)
+
+    nuova_conn = conn
+    for nome_tabella in reversed(backup.TABELLE):
+        if nome_tabella != "utenti":
+            nuova_conn.execute(f"DELETE FROM {nome_tabella}")
+    nuova_conn.commit()
+
+    backup.import_csv(nuova_conn, righe_giocatori, righe_partite, admin_id)
+
+    assert len(db.fetch_giocatori(nuova_conn)) == 6
+    assert len(db.fetch_partite_non_annullate(nuova_conn)) == 1
+
+
 def test_import_fallito_fa_rollback(conn, admin_id):
     p = crea_giocatori(conn, 6)
     rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)

@@ -1,4 +1,5 @@
-import json
+import csv
+import io
 from datetime import datetime
 
 import streamlit as st
@@ -8,56 +9,84 @@ from rokkini import auth, backup, db, ui_common
 conn = db.get_connection()
 auth.require_role(conn, "super_admin")
 
+
+def _csv_da_righe(righe: list[dict], colonne: tuple[str, ...]) -> str:
+    buffer = io.StringIO()
+    scrittore = csv.DictWriter(buffer, fieldnames=colonne)
+    scrittore.writeheader()
+    scrittore.writerows(righe)
+    return buffer.getvalue()
+
+
+def _righe_da_csv(file_caricato) -> list[dict]:
+    testo = file_caricato.getvalue().decode("utf-8")
+    return list(csv.DictReader(io.StringIO(testo)))
+
+
 st.title("💾 Backup dati")
 ui_common.mostra_messaggio_pendente()
 
 st.subheader("Esporta")
 st.caption(
-    "Scarica un file JSON con tutti i dati (giocatori, utenti, partite, storico Rk). "
-    "Contiene anche gli hash delle password (bcrypt, non testo in chiaro): trattalo comunque "
-    "come un file riservato."
+    "Due file CSV, con la data dell'esportazione: uno con le partite giocate (chi ha "
+    "vinto, chi ha giocato), uno con il Rk attuale di ogni giocatore. Sono anche i file "
+    "da usare per un ripristino (sotto)."
 )
-dump = backup.export_data(conn)
-nome_file = f"rokkini_backup_{datetime.now():%Y%m%d_%H%M%S}.json"
-st.download_button(
-    "⬇️ Scarica backup",
-    data=json.dumps(dump, indent=2, ensure_ascii=False),
-    file_name=nome_file,
-    mime="application/json",
-)
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+col_export_1, col_export_2 = st.columns(2)
+with col_export_1:
+    righe_giocatori_export = backup.export_giocatori_csv(conn)
+    st.download_button(
+        "⬇️ Rk giocatori (CSV)",
+        data=_csv_da_righe(righe_giocatori_export, backup.COLONNE_GIOCATORI_CSV),
+        file_name=f"rokkup_giocatori_{timestamp}.csv",
+        mime="text/csv",
+    )
+with col_export_2:
+    righe_partite_export = backup.export_partite_csv(conn)
+    st.download_button(
+        "⬇️ Partite (CSV)",
+        data=_csv_da_righe(righe_partite_export, backup.COLONNE_PARTITE_CSV),
+        file_name=f"rokkup_partite_{timestamp}.csv",
+        mime="text/csv",
+    )
 
 st.divider()
 
-st.subheader("Importa")
+st.subheader("Importa (ripristino da CSV)")
 st.error(
-    "⚠️ L'importazione SOSTITUISCE tutti i dati attuali (giocatori, utenti, storico partite) "
-    "con quelli del file caricato. Non è un'unione: quello che c'è ora viene cancellato. "
-    "Usalo solo per un ripristino da backup."
+    "⚠️ Il ripristino SOSTITUISCE tutto lo storico partite attuale con quello dei file "
+    "caricati, e riporta il Rk di ogni giocatore al valore congelato nel file giocatori "
+    "(anche se nel frattempo la logica di calcolo dei punti e' cambiata). Non tocca gli "
+    "account utente. Usalo solo per un ripristino da backup."
 )
 _contatore_upload = st.session_state.get("_contatore_upload_backup", 0)
-file_caricato = st.file_uploader(
-    "File di backup (.json)", type="json", key=f"file_backup_{_contatore_upload}"
+file_giocatori = st.file_uploader(
+    "File Rk giocatori (.csv)", type="csv", key=f"file_giocatori_{_contatore_upload}"
+)
+file_partite = st.file_uploader(
+    "File partite (.csv)", type="csv", key=f"file_partite_{_contatore_upload}"
 )
 
-if file_caricato is not None:
+if file_giocatori is not None and file_partite is not None:
     try:
-        dump_da_importare = json.loads(file_caricato.getvalue())
-    except json.JSONDecodeError:
-        st.error("Il file non è un JSON valido.")
+        righe_giocatori = _righe_da_csv(file_giocatori)
+        righe_partite = _righe_da_csv(file_partite)
+    except UnicodeDecodeError:
+        st.error("Uno dei due file non e' un CSV valido.")
         st.stop()
 
-    n_giocatori = len(dump_da_importare.get("tabelle", {}).get("giocatori", []))
-    n_partite = len(dump_da_importare.get("tabelle", {}).get("partite", []))
-    st.write(f"Il file contiene **{n_giocatori} giocatori** e **{n_partite} partite**.")
+    st.write(f"I file contengono **{len(righe_giocatori)} giocatori** e **{len(righe_partite)} partite**.")
 
-    conferma = st.text_input("Scrivi CONFERMO per abilitare l'importazione", key="conferma_importa")
-    if st.button("Importa e sostituisci tutto", type="primary", disabled=conferma != "CONFERMO"):
+    conferma = st.text_input("Scrivi CONFERMO per abilitare il ripristino", key="conferma_importa")
+    if st.button("Ripristina da CSV", type="primary", disabled=conferma != "CONFERMO"):
         try:
-            backup.import_data(conn, dump_da_importare)
+            backup.import_csv(conn, righe_giocatori, righe_partite, auth.current_user_id(conn))
         except Exception as e:
-            st.error(f"Importazione fallita, nessun dato modificato: {e}")
+            st.error(f"Ripristino fallito, nessun dato modificato: {e}")
         else:
-            ui_common.imposta_messaggio_pendente("✅ Dati importati correttamente.")
+            ui_common.imposta_messaggio_pendente("✅ Dati ripristinati correttamente.")
             st.session_state.pop("conferma_importa", None)
             st.session_state["_contatore_upload_backup"] = _contatore_upload + 1
             st.rerun()
