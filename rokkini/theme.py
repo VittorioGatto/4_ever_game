@@ -40,6 +40,21 @@ div[data-testid="stDataFrame"], div[data-testid="stTable"] {
     border: 2px solid #00FF00 !important;
 }
 
+/* st.metric tronca il valore con "..." se non ci sta su una riga: con
+valori lunghi tipo "Andrea — 156 giorni" o le statistiche stupide (es.
+"Elena — vinta con solo il 27.8% di probabilita'") il testo spariva a meta',
+anche su schermi larghi. Si lascia andare a capo invece di troncare. Il
+"nowrap" e' impostato direttamente sul <p> dentro stMarkdownContainer, non
+solo sul div stMetricValue: bisogna sovrascriverlo li', perche' una regola
+esplicita su un elemento vince sempre su un valore ereditato dal genitore,
+indipendentemente dalla specificita' di chi lo eredita. */
+div[data-testid="stMetricValue"],
+div[data-testid="stMetricValue"] p {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+}
+
 hr { border-color: #00FF00 !important; }
 
 h1, h2, h3 { font-family: monospace !important; letter-spacing: 1px; }
@@ -71,6 +86,15 @@ sopra il titolo e lo fa andare a capo su due righe: qui si riduce entrambi */
     h1 { font-size: 1.9rem !important; }
     h2 { font-size: 1.5rem !important; }
     h3 { font-size: 1.25rem !important; }
+
+    /* su schermi stretti il valore di st.metric va a capo (regola globale
+    sopra) su piu' righe spesso: qui si riduce il font perche' resti
+    leggibile senza sembrare sproporzionato rispetto al resto della pagina. */
+    div[data-testid="stMetricValue"],
+    div[data-testid="stMetricValue"] p {
+        font-size: 1.4rem !important;
+        line-height: 1.3 !important;
+    }
 }
 
 /* "Rocco sta pensando": invece di un placeholder gestito a mano in Python

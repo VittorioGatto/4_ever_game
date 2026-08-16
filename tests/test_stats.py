@@ -76,6 +76,50 @@ def test_records_rk_piu_alto(conn, admin_id):
     assert record["rk_piu_alto"]["valore"] == 1025
 
 
+def test_record_stupidi_su_db_vuoto_non_esplode(conn):
+    record = stats.fetch_record_stupidi(conn)
+    assert record == {
+        "rimonta_clamorosa": None,
+        "sorpresa_piu_grande": None,
+        "tonfo_doloroso": None,
+        "serie_sconfitte": None,
+        "giornata_intensa": None,
+    }
+
+
+def test_record_stupidi_rimonta_e_tonfo_sono_lo_stesso_delta_di_specchio(conn, admin_id):
+    p = crea_giocatori(conn, 6)
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+    record = stats.fetch_record_stupidi(conn)
+    # in una partita 3v3 tutti i vincitori/perdenti hanno lo stesso Rk di
+    # partenza (1000), quindi lo stesso delta: qui basta verificare segno e
+    # coerenza reciproca (il tonfo e' il negativo esatto della rimonta).
+    assert record["rimonta_clamorosa"]["valore"] > 0
+    assert record["tonfo_doloroso"]["valore"] == -record["rimonta_clamorosa"]["valore"]
+
+
+def test_record_stupidi_serie_sconfitte_conta_solo_consecutive(conn, admin_id):
+    p = crea_giocatori(conn, 6)
+    # P1 (in squadra A) perde, vince, perde, perde: la serie piu' lunga e' 2
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "1-2", "B", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-02", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-03", "3v3", "1-2", "B", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-04", "3v3", "1-2", "B", p[0:3], p[3:6], admin_id)
+
+    record = stats.fetch_record_stupidi(conn)
+    assert record["serie_sconfitte"]["valore"] == 2
+
+
+def test_record_stupidi_giornata_intensa_conta_partite_nello_stesso_giorno(conn, admin_id):
+    p = crea_giocatori(conn, 6)
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+    rating_engine.register_match(conn, "2026-01-02", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
+
+    record = stats.fetch_record_stupidi(conn)
+    assert record["giornata_intensa"]["valore"] == 2
+
+
 def test_classifica_sessione_somma_i_delta_e_ordina(conn, admin_id):
     p = crea_giocatori(conn, 6)
     sessione_id = db.insert_sessione(conn, admin_id)

@@ -213,3 +213,65 @@ def fetch_records(conn) -> dict[str, Any]:
         "serie_vittorie": top("streak_vittorie_record"),
         "giorni_al_numero_1": giorni_top,
     }
+
+
+def fetch_record_stupidi(conn) -> dict[str, Any]:
+    """Record scherzosi, calcolati sull'intero storico delle variazioni Rk
+    invece che sulle colonne aggregate di giocatori (che tengono solo il
+    meglio, es. la striscia di vittorie: qui serve anche il "peggio", tipo
+    la serie di sconfitte piu' lunga)."""
+    nome_per_id = {g["id"]: g["nome"] for g in db.fetch_giocatori(conn)}
+    variazioni = db.fetch_tutte_variazioni(conn)
+    vittorie = [v for v in variazioni if v["esito"] == "vittoria"]
+    sconfitte = [v for v in variazioni if v["esito"] == "sconfitta"]
+
+    rimonta = max(vittorie, key=lambda v: v["delta"]) if vittorie else None
+    sorpresa = min(vittorie, key=lambda v: v["probabilita_teorica"]) if vittorie else None
+    tonfo = min(sconfitte, key=lambda v: v["delta"]) if sconfitte else None
+
+    peggior_striscia: dict[str, Any] | None = None
+    for giocatore_id, nome in nome_per_id.items():
+        corrente = 0
+        massimo = 0
+        for v in variazioni:
+            if v["giocatore_id"] != giocatore_id:
+                continue
+            if v["esito"] == "sconfitta":
+                corrente += 1
+                massimo = max(massimo, corrente)
+            else:
+                corrente = 0
+        if massimo > 0 and (peggior_striscia is None or massimo > peggior_striscia["valore"]):
+            peggior_striscia = {"nome": nome, "valore": massimo}
+
+    conteggio_giorno: dict[tuple[int, str], int] = {}
+    for v in variazioni:
+        chiave = (v["giocatore_id"], v["data_partita"])
+        conteggio_giorno[chiave] = conteggio_giorno.get(chiave, 0) + 1
+    giornata_intensa = None
+    if conteggio_giorno:
+        (giocatore_id, _data), n = max(conteggio_giorno.items(), key=lambda kv: kv[1])
+        giornata_intensa = {"nome": nome_per_id[giocatore_id], "valore": n}
+
+    return {
+        "rimonta_clamorosa": (
+            {"nome": nome_per_id[rimonta["giocatore_id"]], "valore": rimonta["delta"]}
+            if rimonta
+            else None
+        ),
+        "sorpresa_piu_grande": (
+            {
+                "nome": nome_per_id[sorpresa["giocatore_id"]],
+                "valore": round(sorpresa["probabilita_teorica"] * 100, 1),
+            }
+            if sorpresa
+            else None
+        ),
+        "tonfo_doloroso": (
+            {"nome": nome_per_id[tonfo["giocatore_id"]], "valore": tonfo["delta"]}
+            if tonfo
+            else None
+        ),
+        "serie_sconfitte": peggior_striscia,
+        "giornata_intensa": giornata_intensa,
+    }

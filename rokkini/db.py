@@ -365,6 +365,20 @@ def fetch_variazioni_per_partita(conn, partita_id: int) -> list[dict[str, Any]]:
     return rows_as_dicts(cur)
 
 
+def fetch_tutte_variazioni(conn) -> list[dict[str, Any]]:
+    """Tutte le variazioni Rk con la data della partita: usata per i record
+    "stupidi" (rimonte, tonfi, serie nere) che guardano l'intero storico
+    invece che un singolo giocatore. variazioni_rk esiste solo per partite
+    non annullate (recompute_all la ricostruisce solo dal replay dello
+    storico non annullato), quindi non serve filtrare qui."""
+    cur = conn.execute(
+        """SELECT v.*, p.data_partita FROM variazioni_rk v
+           JOIN partite p ON p.id = v.partita_id
+           ORDER BY p.data_partita ASC, p.created_at ASC, p.id ASC"""
+    )
+    return rows_as_dicts(cur)
+
+
 # --- ranking_leader_log -------------------------------------------------------
 
 
