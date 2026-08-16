@@ -63,7 +63,7 @@ $$E_A = \dfrac{1}{1 + 10^{(R_B - R_A)/400}}$$
 
 **Passo 2 — variazione di base.** Per ogni giocatore, in base al risultato reale della partita ($S = 1$ se ha vinto, $S = 0$ se ha perso):
 
-$$\Delta Rk = K \cdot (S - E)$$
+$$\Delta Rk_{base} = K \cdot (S - E)$$
 
 In generale questo significa che:
 
@@ -84,21 +84,40 @@ In generale questo significa che:
 | 45 – 64 | 26 |
 | 65+ | 24 |
 
-**Passo 3 — correttivo individuale.** Viene applicato un piccolo correttivo basato sul livello del giocatore rispetto ai propri compagni, con un massimo di **±5%**:
+**Passo 3 — correttivo individuale.** Il correttivo confronta il Rk del giocatore con la media Rk dei **soli compagni di squadra**, se stesso escluso:
 
-$$c = \frac{\overline{R}_{squadra} - R_{giocatore}}{1000} \quad \text{(clampato tra } -0{,}05 \text{ e } +0{,}05\text{)}$$
+$$R_{comp} = \frac{\sum Rk_{compagni}}{n-1}$$
 
-Un giocatore con Rk inferiore alla media della propria squadra viene leggermente premiato in caso di vittoria ($\Delta Rk$ moltiplicato per $1+c$) e maggiormente protetto in caso di sconfitta ($\Delta Rk$ moltiplicato per $1-c$). Per un giocatore con Rk superiore alla media della propria squadra avviene il contrario.
+$$D = R_{comp} - R_{giocatore}$$
 
-Con un massimo del ±5% il correttivo resta un dettaglio di rifinitura: il risultato della partita, tramite $K$ ed $E$, è nettamente il fattore principale nell'assegnazione degli Rk.
+- $D > 0$: il giocatore è più debole dei propri compagni ("sfavorito")
+- $D < 0$: il giocatore è più forte dei propri compagni ("favorito")
+- $D = 0$: nessun correttivo
+
+La saturazione non è simmetrica: il bonus dello sfavorito raggiunge il massimo (±5%) già a 200 Rk di differenza, mentre la penalità del favorito arriva al massimo solo a 400 Rk (il doppio) — un giocatore molto più forte dei propri compagni viene penalizzato più gradualmente.
+
+$$C_{sfavorito} = \min\!\left(\frac{D}{200}\times 0{,}05,\ 0{,}05\right) \qquad C_{favorito} = -\min\!\left(\frac{|D|}{400}\times 0{,}05,\ 0{,}05\right)$$
+
+Il correttivo si applica alla variazione di base:
+
+$$\Delta Rk_{finale} = \Delta Rk_{base}\,(1 + C) \text{ se vittoria}, \qquad \Delta Rk_{base}\,(1 - C) \text{ se sconfitta}$$
+
+In pratica:
+
+| Giocatore | Vittoria | Sconfitta |
+|---|---|---|
+| Sfavorito | guadagna fino al 5% in più | perde fino al 5% in meno |
+| Favorito | guadagna fino al 5% in meno | perde fino al 5% in più |
+
+Tutti i calcoli usano gli Rk posseduti prima della partita; i rating di tutti i partecipanti vengono aggiornati solo alla fine, una volta calcolate tutte le variazioni.
 
 **Riassunto in tre livelli:**
 
 1. il risultato della partita determina la variazione Elo, in base alla forza delle due squadre;
 2. l'esperienza del giocatore (il coefficiente K) determina quanto velocemente i suoi Rk possono cambiare;
-3. la posizione individuale nella squadra (il correttivo, max ±5%) rifinisce la variazione.
+3. la posizione individuale rispetto ai propri compagni (il correttivo, max ±5%) rifinisce la variazione.
 
-3v3 e 4v4 usano lo stesso identico calcolo: cambia solo il numero di giocatori con cui si calcola la media della squadra.
+3v3 e 4v4 usano lo stesso identico calcolo: cambia solo il numero di giocatori con cui si calcolano le medie di squadra e compagni.
 
 ---
 

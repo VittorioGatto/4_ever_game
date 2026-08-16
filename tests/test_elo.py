@@ -59,23 +59,28 @@ def test_win_probability_complementary():
 
 
 def test_individual_correction_clamped():
-    assert individual_correction(1400, 1600) == pytest.approx(-0.05)
-    assert individual_correction(1400, 1400) == pytest.approx(0.0)
+    # d = media_compagni - rk_giocatore
+    assert individual_correction(1400, 1400) == pytest.approx(0.0)  # D=0, nessun correttivo
+    # sfavorito (D>0): satura a +0.05 gia' a D=200
     assert individual_correction(1400, 1200) == pytest.approx(0.05)
-    # differenza enorme: il correttivo resta comunque clampato a +-0.05
+    assert individual_correction(1400, 1300) == pytest.approx(0.025)  # a meta' (D=100)
+    # favorito (D<0): satura a -0.05 solo a D=-400 (il doppio)
+    assert individual_correction(1400, 1600) == pytest.approx(-0.025)  # D=-200, non ancora saturo
+    assert individual_correction(1400, 1800) == pytest.approx(-0.05)  # D=-400, saturo
+    # differenze enormi: il correttivo resta comunque clampato a +-0.05
     assert individual_correction(1000, 3000) == pytest.approx(-0.05)
     assert individual_correction(3000, 1000) == pytest.approx(0.05)
 
 
 def test_regolamento_esempio_correttivo():
-    """Esempio del regolamento (sezione 4): squadra 1600/1400/1200 Rk, media
-    1400, vittoria con variazione base di circa +15 Rk per tutti (stesso K
-    per i tre giocatori in questo esempio), rifinita dal correttivo max ±5%."""
-    team_avg = 1400
+    """Esempio del regolamento (sezione 4): un giocatore con Rk 1200 ha
+    compagni con media 1400 (D=+200, sfavorito, correttivo saturo a +5%);
+    uno con Rk 1600 ha compagni con media 1400 (D=-200, favorito, correttivo
+    a meta' della saturazione, -2.5%). Variazione di base di circa +15 Rk."""
     delta_base = 15
-    rk_values_and_expected = [(1600, 14), (1400, 15), (1200, 16)]
-    for rk, expected_delta in rk_values_and_expected:
-        c = individual_correction(team_avg, rk)
+    media_compagni_and_expected = [(1200, 16), (1400, 15), (1600, 15)]
+    for rk, expected_delta in media_compagni_and_expected:
+        c = individual_correction(1400, rk)
         delta_finale = round_half_away_from_zero(delta_base * (1 + c))
         assert delta_finale == expected_delta
 

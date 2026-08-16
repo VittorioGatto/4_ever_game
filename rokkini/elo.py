@@ -4,7 +4,13 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
-from rokkini.constants import CORRETTIVO_MASSIMO, FASCE, K_FACTOR_SOGLIE
+from rokkini.constants import (
+    CORRETTIVO_MASSIMO,
+    CORRETTIVO_SATURAZIONE_FAVORITO,
+    CORRETTIVO_SATURAZIONE_SFAVORITO,
+    FASCE,
+    K_FACTOR_SOGLIE,
+)
 
 Squadra = Literal["A", "B"]
 Esito = Literal["vittoria", "sconfitta"]
@@ -52,9 +58,18 @@ def win_probability(own_avg: float, opponent_avg: float) -> float:
     return 1.0 / (1.0 + 10 ** ((opponent_avg - own_avg) / 400))
 
 
-def individual_correction(team_avg: float, player_rk: int) -> float:
-    c = (team_avg - player_rk) / 1000
-    return max(-CORRETTIVO_MASSIMO, min(CORRETTIVO_MASSIMO, c))
+def individual_correction(teammates_avg: float, player_rk: int) -> float:
+    """C: confronta il Rk del giocatore con la media Rk dei SOLI compagni di
+    squadra (se stesso escluso). D>0 (giocatore piu' debole dei compagni,
+    "sfavorito") da' un correttivo positivo che satura a CORRETTIVO_MASSIMO
+    gia' a CORRETTIVO_SATURAZIONE_SFAVORITO Rk di differenza; D<0 ("favorito")
+    da' un correttivo negativo che satura solo a CORRETTIVO_SATURAZIONE_FAVORITO
+    (il doppio, quindi la penalita' del favorito cresce piu' lentamente del
+    bonus dello sfavorito)."""
+    d = teammates_avg - player_rk
+    if d > 0:
+        return min(d / CORRETTIVO_SATURAZIONE_SFAVORITO * CORRETTIVO_MASSIMO, CORRETTIVO_MASSIMO)
+    return -min(-d / CORRETTIVO_SATURAZIONE_FAVORITO * CORRETTIVO_MASSIMO, CORRETTIVO_MASSIMO)
 
 
 def round_half_away_from_zero(x: float) -> int:
@@ -70,11 +85,16 @@ def _team_deltas(
 ) -> list[PlayerDelta]:
     p = win_probability(team_avg, opponent_avg)
     s = 1.0 if esito == "vittoria" else 0.0
+    somma_squadra = sum(pl.rk_before for pl in team)
     deltas = []
     for player in team:
         k = k_factor(player.matches_played_before)
         delta_base = k * (s - p)
-        c = individual_correction(team_avg, player.rk_before)
+        if len(team) > 1:
+            media_compagni = (somma_squadra - player.rk_before) / (len(team) - 1)
+            c = individual_correction(media_compagni, player.rk_before)
+        else:
+            c = 0.0  # nessun compagno con cui confrontarsi
         delta_finale = delta_base * (1 + c) if esito == "vittoria" else delta_base * (1 - c)
         delta_arrotondato = round_half_away_from_zero(delta_finale)
         deltas.append(

@@ -29,3 +29,11 @@ K_FACTOR_SOGLIE = [
 ]
 
 CORRETTIVO_MASSIMO = 0.05
+
+# Il correttivo confronta il Rk del giocatore con la media dei SOLI compagni
+# (se stesso escluso), non con la media di tutta la squadra: D = media
+# compagni - Rk giocatore. Saturazione non simmetrica: lo sfavorito (D>0)
+# arriva al correttivo massimo gia' a una differenza di 200 Rk; il favorito
+# (D<0) solo a 400 Rk, il doppio.
+CORRETTIVO_SATURAZIONE_SFAVORITO = 200
+CORRETTIVO_SATURAZIONE_FAVORITO = 400
