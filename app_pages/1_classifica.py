@@ -1,9 +1,10 @@
 import streamlit as st
 
 from rokkini import db, stats
-from rokkini.constants import PARTITE_QUALIFICAZIONE
+from rokkini.parametri import fetch_parametri_attivi
 
 conn = db.get_connection()
+PARTITE_QUALIFICAZIONE = fetch_parametri_attivi(conn).partite_qualificazione
 
 st.title("🏆 Classifica")
 

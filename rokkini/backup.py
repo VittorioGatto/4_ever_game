@@ -12,17 +12,19 @@ from datetime import datetime
 from typing import Any
 
 from rokkini import db, rating_engine
-from rokkini.constants import RK_INIZIALE
 from rokkini.elo import tier_for_rk
+from rokkini.parametri import fetch_parametri_attivi
 
 VERSIONE_FORMATO = 1
 
 
 def _reset_giocatori(conn) -> None:
-    """Riporta ogni giocatore ai valori di partenza correnti (RK_INIZIALE e
-    la fascia che gli corrisponde), non a 1000/'H' fissi: se la logica di
-    calcolo cambia (es. Rk iniziale spostato), un reset/ripristino deve
-    ripartire dal punto di partenza attuale, non da uno vecchio."""
+    """Riporta ogni giocatore ai valori di partenza correnti (il Rk iniziale
+    attivo e la fascia che gli corrisponde), non a 1000/'H' fissi: se i
+    parametri di calcolo cambiano (es. Rk iniziale spostato dalla pagina
+    Simulazione), un reset/ripristino deve ripartire dal punto di partenza
+    attuale, non da uno vecchio."""
+    parametri = fetch_parametri_attivi(conn)
     conn.execute(
         """UPDATE giocatori SET
             rk_attuale = ?,
@@ -34,8 +36,9 @@ def _reset_giocatori(conn) -> None:
             rk_record = ?,
             streak_vittorie_corrente = 0,
             streak_vittorie_record = 0""",
-        (RK_INIZIALE, tier_for_rk(RK_INIZIALE), RK_INIZIALE),
+        (parametri.rk_iniziale, tier_for_rk(parametri.rk_iniziale, parametri.fasce), parametri.rk_iniziale),
     )
+
 
 # Ordine valido per gli INSERT (rispetta le foreign key: ogni tabella
 # referenzia solo tabelle che la precedono). Il DELETE in fase di import usa
@@ -47,6 +50,7 @@ def _reset_giocatori(conn) -> None:
 TABELLE: tuple[str, ...] = (
     "giocatori",
     "utenti",
+    "parametri_calcolo",
     "sessioni_gioco",
     "partite",
     "sessione_partecipanti",

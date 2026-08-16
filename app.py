@@ -30,6 +30,7 @@ if ruolo == "super_admin":
         st.Page("app_pages/7_gestione_giocatori.py", title="Gestione giocatori", icon="🧑‍🤝‍🧑"),
         st.Page("app_pages/8_gestione_utenti.py", title="Gestione utenti", icon="🔐"),
         st.Page("app_pages/10_backup.py", title="Backup dati", icon="💾"),
+        st.Page("app_pages/13_simulazione.py", title="Simulazione parametri", icon="🔮"),
     ]
 
 navigazione = st.navigation(sezioni)

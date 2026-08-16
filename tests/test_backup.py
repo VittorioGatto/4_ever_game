@@ -1,7 +1,9 @@
+from dataclasses import replace
+
 import libsql
 import pytest
 
-from rokkini import backup, db, rating_engine
+from rokkini import backup, db, parametri, rating_engine
 from rokkini.constants import RK_INIZIALE
 
 
@@ -180,10 +182,11 @@ def test_round_trip_csv_ripristina_partite_e_rk(conn, admin_id):
     assert len(db.fetch_partite_non_annullate(conn)) == 2
 
 
-def test_import_csv_congela_rk_anche_se_la_logica_cambia(conn, admin_id, monkeypatch):
-    """Se il K-factor cambia dopo l'esportazione, il replay delle partite
-    durante il ripristino produrrebbe Rk diversi da quelli esportati: il Rk
-    "ufficiale" deve restare quello congelato nel file giocatori."""
+def test_import_csv_congela_rk_anche_se_la_logica_cambia(conn, admin_id):
+    """Se i parametri di calcolo cambiano dopo l'esportazione, il replay
+    delle partite durante il ripristino produrrebbe Rk diversi da quelli
+    esportati: il Rk "ufficiale" deve restare quello congelato nel file
+    giocatori."""
     p = crea_giocatori(conn, 6, "M")
     rating_engine.register_match(conn, "2026-01-01", "3v3", "2-0", "A", p[0:3], p[3:6], admin_id)
 
@@ -191,7 +194,8 @@ def test_import_csv_congela_rk_anche_se_la_logica_cambia(conn, admin_id, monkeyp
     righe_partite = backup.export_partite_csv(conn)
     rk_congelato = {r["nome"]: int(r["rk_attuale"]) for r in righe_giocatori}
 
-    monkeypatch.setattr("rokkini.elo.K_FACTOR_SOGLIE", [(0, 999)])
+    nuovi_parametri = replace(parametri.fetch_parametri_attivi(conn), k_factor_soglie=[(0, 999)])
+    parametri.salva_parametri_attivi(conn, nuovi_parametri)
 
     backup.import_csv(conn, righe_giocatori, righe_partite, admin_id)
 

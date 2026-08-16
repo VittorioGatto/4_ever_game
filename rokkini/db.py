@@ -7,6 +7,8 @@ from typing import Any
 import libsql
 import streamlit as st
 
+from rokkini import constants
+
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 LOCAL_DB_PATH = Path(__file__).parent.parent / "data" / "local.db"
 
@@ -38,6 +40,21 @@ def apply_schema(conn) -> None:
         conn.execute("ALTER TABLE partite ADD COLUMN sessione_id INTEGER REFERENCES sessioni_gioco (id)")
     if not _colonna_esiste(conn, "sessioni_gioco", "programma_torneo"):
         conn.execute("ALTER TABLE sessioni_gioco ADD COLUMN programma_torneo TEXT")
+    conn.execute(
+        """INSERT OR IGNORE INTO parametri_calcolo
+               (id, rk_iniziale, partite_qualificazione, fasce_json, k_factor_soglie_json,
+                correttivo_massimo, correttivo_saturazione_sfavorito, correttivo_saturazione_favorito)
+           VALUES (1, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            constants.RK_INIZIALE,
+            constants.PARTITE_QUALIFICAZIONE,
+            json.dumps(constants.FASCE),
+            json.dumps(constants.K_FACTOR_SOGLIE),
+            constants.CORRETTIVO_MASSIMO,
+            constants.CORRETTIVO_SATURAZIONE_SFAVORITO,
+            constants.CORRETTIVO_SATURAZIONE_FAVORITO,
+        ),
+    )
     conn.commit()
 
 

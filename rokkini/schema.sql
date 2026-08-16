@@ -87,6 +87,21 @@ CREATE TABLE IF NOT EXISTS ranking_leader_log (
     ended_at     TEXT
 );
 
+-- Riga singola (id sempre 1): i parametri di calcolo Rk attualmente in uso.
+-- Configurabili dalla pagina Simulazione senza bisogno di un deploy di
+-- codice; apply_schema() la popola con i default di rokkini/constants.py se
+-- manca (prima installazione o DB preesistente da prima di questa tabella).
+CREATE TABLE IF NOT EXISTS parametri_calcolo (
+    id                                INTEGER PRIMARY KEY CHECK (id = 1),
+    rk_iniziale                       INTEGER NOT NULL,
+    partite_qualificazione            INTEGER NOT NULL,
+    fasce_json                        TEXT NOT NULL,
+    k_factor_soglie_json              TEXT NOT NULL,
+    correttivo_massimo                REAL NOT NULL,
+    correttivo_saturazione_sfavorito  INTEGER NOT NULL,
+    correttivo_saturazione_favorito   INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_partite_data ON partite (voided, data_partita, created_at, id);
 CREATE INDEX IF NOT EXISTS idx_variazioni_giocatore ON variazioni_rk (giocatore_id);
 CREATE INDEX IF NOT EXISTS idx_partecipazioni_giocatore ON partecipazioni_partita (giocatore_id);

@@ -8,8 +8,8 @@ ricalcolo dopo un annullamento.
 """
 
 from rokkini import db
-from rokkini.constants import PARTITE_QUALIFICAZIONE, RK_INIZIALE
 from rokkini.elo import PlayerDelta, PlayerPreMatch, compute_match_deltas, tier_for_rk
+from rokkini.parametri import Parametri, fetch_parametri_attivi
 
 
 class GiocatoreState:
@@ -24,17 +24,17 @@ class GiocatoreState:
         "vittorie",
     )
 
-    def __init__(self) -> None:
-        self.rk = RK_INIZIALE
+    def __init__(self, rk_iniziale: int) -> None:
+        self.rk = rk_iniziale
         self.partite_giocate = 0
         self.vittorie = 0
         self.sconfitte = 0
         self.qualificato = False
-        self.rk_record = RK_INIZIALE
+        self.rk_record = rk_iniziale
         self.streak_vittorie_corrente = 0
         self.streak_vittorie_record = 0
 
-    def applica(self, delta: PlayerDelta) -> None:
+    def applica(self, delta: PlayerDelta, partite_qualificazione: int) -> None:
         self.rk = delta.rk_dopo
         self.partite_giocate += 1
         self.rk_record = max(self.rk_record, self.rk)
@@ -47,7 +47,7 @@ class GiocatoreState:
         else:
             self.sconfitte += 1
             self.streak_vittorie_corrente = 0
-        if self.partite_giocate >= PARTITE_QUALIFICAZIONE:
+        if self.partite_giocate >= partite_qualificazione:
             self.qualificato = True
 
 
@@ -147,9 +147,10 @@ def edit_match(
     return nuova_id
 
 
-def recompute_all(conn) -> None:
+def recompute_all(conn, parametri: Parametri | None = None) -> None:
     """Ricalcola da zero l'intero storico non annullato, in ordine
-    cronologico, e riscrive giocatori/variazioni_rk/ranking_leader_log.
+    cronologico, e riscrive giocatori/variazioni_rk/ranking_leader_log, con i
+    parametri passati o (default) quelli attualmente attivi nel DB.
 
     Approccio a replay completo, non calcolo incrementale del sottografo
     "affetto" da una modifica: alla scala di un gruppo di amici il replay e'
@@ -161,8 +162,11 @@ def recompute_all(conn) -> None:
     rete, e uno storico di centinaia di partite renderebbe altrimenti
     questa funzione (richiamata a ogni registrazione/annullamento/
     correzione) lenta in modo percepibile."""
+    parametri = parametri or fetch_parametri_attivi(conn)
     giocatori = db.fetch_giocatori(conn)
-    stato: dict[int, GiocatoreState] = {g["id"]: GiocatoreState() for g in giocatori}
+    stato: dict[int, GiocatoreState] = {
+        g["id"]: GiocatoreState(parametri.rk_iniziale) for g in giocatori
+    }
     sospeso_map = {g["id"]: bool(g["sospeso"]) for g in giocatori}
 
     db.delete_tutte_variazioni_e_leader_log(conn)
@@ -184,10 +188,12 @@ def recompute_all(conn) -> None:
             PlayerPreMatch(gid, stato[gid].rk, stato[gid].partite_giocate)
             for gid in squadra_b_ids
         ]
-        deltas_a, deltas_b = compute_match_deltas(team_a, team_b, partita["squadra_vincente"])
+        deltas_a, deltas_b = compute_match_deltas(
+            team_a, team_b, partita["squadra_vincente"], parametri
+        )
 
         for delta in deltas_a + deltas_b:
-            stato[delta.player_id].applica(delta)
+            stato[delta.player_id].applica(delta, parametri.partite_qualificazione)
             righe_variazioni.append(
                 (
                     partita["id"],
@@ -218,11 +224,63 @@ def recompute_all(conn) -> None:
             vittorie=s.vittorie,
             sconfitte=s.sconfitte,
             qualificato=int(s.qualificato),
-            fascia_attuale=tier_for_rk(s.rk),
+            fascia_attuale=tier_for_rk(s.rk, parametri.fasce),
             rk_record=s.rk_record,
             streak_vittorie_corrente=s.streak_vittorie_corrente,
             streak_vittorie_record=s.streak_vittorie_record,
         )
+
+
+def simula_classifica(conn, parametri: Parametri) -> list[dict]:
+    """Rigioca l'intero storico partite non annullate con `parametri` e
+    restituisce la classifica risultante, senza scrivere nulla sul database
+    (a differenza di recompute_all): usata dalla pagina Simulazione per
+    confrontare scenari prima di applicarli davvero. Non traccia il leader
+    log (irrilevante per una classifica ipotetica) — per questo e' un ciclo
+    di replay separato da recompute_all invece di condiviso: quello vero
+    deve anche scrivere su variazioni_rk/ranking_leader_log durante il
+    replay, questo resta puro."""
+    giocatori = db.fetch_giocatori(conn)
+    stato: dict[int, GiocatoreState] = {
+        g["id"]: GiocatoreState(parametri.rk_iniziale) for g in giocatori
+    }
+    partecipazioni_per_partita = db.fetch_tutte_partecipazioni_non_annullate(conn)
+
+    for partita in db.fetch_partite_non_annullate(conn):
+        partecipazioni = partecipazioni_per_partita.get(partita["id"], [])
+        squadra_a_ids = [p["giocatore_id"] for p in partecipazioni if p["squadra"] == "A"]
+        squadra_b_ids = [p["giocatore_id"] for p in partecipazioni if p["squadra"] == "B"]
+
+        team_a = [
+            PlayerPreMatch(gid, stato[gid].rk, stato[gid].partite_giocate)
+            for gid in squadra_a_ids
+        ]
+        team_b = [
+            PlayerPreMatch(gid, stato[gid].rk, stato[gid].partite_giocate)
+            for gid in squadra_b_ids
+        ]
+        deltas_a, deltas_b = compute_match_deltas(
+            team_a, team_b, partita["squadra_vincente"], parametri
+        )
+        for delta in deltas_a + deltas_b:
+            stato[delta.player_id].applica(delta, parametri.partite_qualificazione)
+
+    nome_per_id = {g["id"]: g["nome"] for g in giocatori}
+    righe = [
+        {
+            "giocatore_id": gid,
+            "nome": nome_per_id[gid],
+            "rk_simulato": s.rk,
+            "fascia_simulata": tier_for_rk(s.rk, parametri.fasce),
+            "partite_giocate": s.partite_giocate,
+            "vittorie": s.vittorie,
+            "sconfitte": s.sconfitte,
+            "qualificato": s.qualificato,
+        }
+        for gid, s in stato.items()
+    ]
+    righe.sort(key=lambda r: -r["rk_simulato"])
+    return righe
 
 
 def _aggiorna_leader_log(

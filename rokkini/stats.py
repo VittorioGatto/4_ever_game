@@ -6,7 +6,7 @@ from typing import Any
 import polars as pl
 
 from rokkini import db
-from rokkini.constants import RK_INIZIALE
+from rokkini.parametri import fetch_parametri_attivi
 
 
 def _con_percentuale_vittorie(giocatori: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -82,7 +82,8 @@ def fetch_player_profile(conn, giocatore_id: int) -> dict[str, Any] | None:
     posizione = int(posizione_rows["posizione"][0]) if posizione_rows.height else None
 
     variazioni = db.fetch_variazioni_per_giocatore(conn, giocatore_id)
-    punti_storico = [{"partita_numero": 0, "rk": RK_INIZIALE}]
+    rk_iniziale = fetch_parametri_attivi(conn).rk_iniziale
+    punti_storico = [{"partita_numero": 0, "rk": rk_iniziale}]
     for i, v in enumerate(variazioni, start=1):
         punti_storico.append({"partita_numero": i, "rk": v["rk_dopo"]})
     storico_rk = pl.DataFrame(punti_storico)
