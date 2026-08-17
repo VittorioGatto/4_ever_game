@@ -8,6 +8,7 @@ import streamlit as st
 
 from rokkini import auth, rating_engine
 from rokkini.elo import PlayerPreMatch, compute_match_deltas
+from rokkini.parametri import fetch_parametri_attivi
 
 
 def imposta_messaggio_pendente(
@@ -138,7 +139,8 @@ def gestisci_anteprima_e_conferma(
             )
             for gid in squadra_b
         ]
-        deltas_a, deltas_b = compute_match_deltas(team_a, team_b, squadra_vincente)
+        parametri_attivi = fetch_parametri_attivi(conn)
+        deltas_a, deltas_b = compute_match_deltas(team_a, team_b, squadra_vincente, parametri_attivi)
         st.session_state[session_key] = {
             "data_partita": data_partita,
             "modalita": modalita,
