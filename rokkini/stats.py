@@ -188,6 +188,9 @@ def fetch_records(conn) -> dict[str, Any]:
     giorni_al_numero_1 = {
         r["giocatore_id"]: r["giorni"] for r in db.fetch_giorni_al_numero_1(conn)
     }
+    sessioni_al_numero_1 = {
+        r["giocatore_id"]: r["sessioni"] for r in db.fetch_sessioni_al_numero_1(conn)
+    }
     giocatori_per_id = {g["id"]: g for g in giocatori}
 
     def top(chiave: str) -> dict[str, Any] | None:
@@ -197,15 +200,19 @@ def fetch_records(conn) -> dict[str, Any]:
         migliore = max(candidati, key=lambda g: g[chiave])
         return {"nome": migliore["nome"], "valore": migliore[chiave]}
 
-    giorni_top = None
-    if giorni_al_numero_1:
-        giocatore_id_top = max(giorni_al_numero_1, key=lambda gid: giorni_al_numero_1[gid])
+    def _top_da_conteggio(conteggio: dict[int, Any]) -> dict[str, Any] | None:
+        if not conteggio:
+            return None
+        giocatore_id_top = max(conteggio, key=lambda gid: conteggio[gid])
         giocatore = giocatori_per_id.get(giocatore_id_top)
-        if giocatore:
-            giorni_top = {
-                "nome": giocatore["nome"],
-                "valore": round(giorni_al_numero_1[giocatore_id_top], 1),
-            }
+        if giocatore is None:
+            return None
+        return {"nome": giocatore["nome"], "valore": conteggio[giocatore_id_top]}
+
+    giorni_top = _top_da_conteggio(
+        {gid: round(giorni, 1) for gid, giorni in giorni_al_numero_1.items()}
+    )
+    sessioni_top = _top_da_conteggio(sessioni_al_numero_1)
 
     return {
         "rk_piu_alto": top("rk_record"),
@@ -213,6 +220,7 @@ def fetch_records(conn) -> dict[str, Any]:
         "piu_vittorie": top("vittorie"),
         "serie_vittorie": top("streak_vittorie_record"),
         "giorni_al_numero_1": giorni_top,
+        "sessioni_al_numero_1": sessioni_top,
     }
 
 

@@ -76,6 +76,32 @@ def test_records_rk_piu_alto(conn, admin_id):
     assert record["rk_piu_alto"]["valore"] == 1278
 
 
+def test_records_sessioni_al_numero_1(conn, admin_id):
+    """Diverso da giorni_al_numero_1 (che conta i giorni): qui conta in
+    quante sessioni distinte un giocatore e' stato leader in almeno una
+    partita, indipendentemente da quanto e' durato quel primato."""
+    p = crea_giocatori(conn, 6)
+    sessione_id = db.insert_sessione(conn, admin_id)
+    db.set_partecipanti_sessione(conn, sessione_id, p)
+    for i in range(PARTITE_QUALIFICAZIONE):
+        rating_engine.register_match(
+            conn,
+            f"2026-01-{i + 1:02d}",
+            "3v3",
+            "2-0",
+            "A",
+            p[0:3],
+            p[3:6],
+            admin_id,
+            sessione_id=sessione_id,
+        )
+
+    record = stats.fetch_records(conn)
+    assert record["sessioni_al_numero_1"] is not None
+    assert record["sessioni_al_numero_1"]["valore"] == 1
+    assert record["sessioni_al_numero_1"]["nome"] in {"P1", "P2", "P3"}  # squadra A, che ha sempre vinto
+
+
 def test_record_stupidi_su_db_vuoto_non_esplode(conn):
     record = stats.fetch_record_stupidi(conn)
     assert record == {

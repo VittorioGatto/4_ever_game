@@ -64,6 +64,24 @@ def test_programma_torneo_round_trip_preserva_partite_previste(conn, admin_id):
     assert riletto["partite_previste"][0] == [[1, 2, 9], [4, 5, 6]]
 
 
+def test_sessioni_leader_log_round_trip_dedup(conn, admin_id):
+    p = crea_giocatori(conn, 3)
+    s1 = db.insert_sessione(conn, admin_id)
+    s2 = db.insert_sessione(conn, admin_id)
+
+    db.insert_sessioni_leader_bulk(conn, {(s1, p[0]), (s2, p[0])})
+    # re-inserire la stessa coppia (es. un secondo recompute_all sulla stessa
+    # sessione, come capita a ogni nuova partita registrata) non deve
+    # duplicare la riga: UNIQUE(sessione_id, giocatore_id) + INSERT OR IGNORE
+    db.insert_sessioni_leader_bulk(conn, {(s1, p[0])})
+    conn.commit()
+
+    risultato = db.fetch_sessioni_al_numero_1(conn)
+    assert len(risultato) == 1
+    assert risultato[0]["giocatore_id"] == p[0]
+    assert risultato[0]["sessioni"] == 2
+
+
 def test_set_partecipanti_sessione_aggiunge_e_rimuove(conn, admin_id):
     p = crea_giocatori(conn, 8)
     sessione_id = db.insert_sessione(conn, admin_id)

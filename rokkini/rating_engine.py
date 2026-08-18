@@ -149,8 +149,9 @@ def edit_match(
 
 def recompute_all(conn, parametri: Parametri | None = None) -> None:
     """Ricalcola da zero l'intero storico non annullato, in ordine
-    cronologico, e riscrive giocatori/variazioni_rk/ranking_leader_log, con i
-    parametri passati o (default) quelli attualmente attivi nel DB.
+    cronologico, e riscrive giocatori/variazioni_rk/ranking_leader_log/
+    sessione_leader_log, con i parametri passati o (default) quelli
+    attualmente attivi nel DB.
 
     Approccio a replay completo, non calcolo incrementale del sottografo
     "affetto" da una modifica: alla scala di un gruppo di amici il replay e'
@@ -173,6 +174,7 @@ def recompute_all(conn, parametri: Parametri | None = None) -> None:
 
     partecipazioni_per_partita = db.fetch_tutte_partecipazioni_non_annullate(conn)
     righe_variazioni: list[tuple] = []
+    sessioni_leader: set[tuple[int, int]] = set()
 
     leader_corrente: int | None = None
     for partita in db.fetch_partite_non_annullate(conn):
@@ -212,8 +214,11 @@ def recompute_all(conn, parametri: Parametri | None = None) -> None:
         leader_corrente = _aggiorna_leader_log(
             conn, stato, sospeso_map, leader_corrente, partita["data_partita"]
         )
+        if partita["sessione_id"] is not None and leader_corrente is not None:
+            sessioni_leader.add((partita["sessione_id"], leader_corrente))
 
     db.insert_variazioni_bulk(conn, righe_variazioni)
+    db.insert_sessioni_leader_bulk(conn, sessioni_leader)
 
     for giocatore_id, s in stato.items():
         db.update_giocatore_stato(

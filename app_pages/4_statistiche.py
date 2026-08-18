@@ -26,6 +26,7 @@ with col1:
 with col2:
     mostra_record(record, "Più vittorie", "piu_vittorie")
     mostra_record(record, "Più giorni al #1", "giorni_al_numero_1", formato="{:.0f} giorni")
+    mostra_record(record, "Più sessioni al #1", "sessioni_al_numero_1", formato="{} sessioni")
 
 st.divider()
 st.subheader("🤡 Statistiche stupide")

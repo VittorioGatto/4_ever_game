@@ -87,6 +87,16 @@ CREATE TABLE IF NOT EXISTS ranking_leader_log (
     ended_at     TEXT
 );
 
+-- Per ogni sessione di gioco, chi era leader (Rk piu' alto tra i qualificati
+-- non sospesi) al termine di almeno una delle sue partite: usata per il
+-- record "piu' sessioni al #1", alternativa a ranking_leader_log (che conta
+-- i giorni, non le sessioni). Popolata da rating_engine.recompute_all.
+CREATE TABLE IF NOT EXISTS sessione_leader_log (
+    sessione_id  INTEGER NOT NULL REFERENCES sessioni_gioco (id),
+    giocatore_id INTEGER NOT NULL REFERENCES giocatori (id),
+    UNIQUE (sessione_id, giocatore_id)
+);
+
 -- Riga singola (id sempre 1): i parametri di calcolo Rk attualmente in uso.
 -- Configurabili dalla pagina Simulazione senza bisogno di un deploy di
 -- codice; apply_schema() la popola con i default di rokkini/constants.py se

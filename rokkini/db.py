@@ -428,10 +428,36 @@ def fetch_giorni_al_numero_1(conn) -> list[dict[str, Any]]:
     return rows_as_dicts(cur)
 
 
+def insert_sessioni_leader_bulk(conn, coppie: set[tuple[int, int]]) -> None:
+    """coppie: (sessione_id, giocatore_id), gia' deduplicate in Python (una
+    sessione puo' avere lo stesso leader per molte partite: qui arriva solo
+    una riga per coppia, invece di una query INSERT per ogni partita)."""
+    lista_coppie = list(coppie)
+    for i in range(0, len(lista_coppie), _DIMENSIONE_BLOCCO_INSERT):
+        blocco = lista_coppie[i : i + _DIMENSIONE_BLOCCO_INSERT]
+        segnaposto = ", ".join(["(?, ?)"] * len(blocco))
+        valori = [v for coppia in blocco for v in coppia]
+        conn.execute(
+            f"INSERT OR IGNORE INTO sessione_leader_log (sessione_id, giocatore_id) VALUES {segnaposto}",
+            valori,
+        )
+
+
+def fetch_sessioni_al_numero_1(conn) -> list[dict[str, Any]]:
+    cur = conn.execute(
+        """SELECT giocatore_id, COUNT(DISTINCT sessione_id) AS sessioni
+           FROM sessione_leader_log
+           GROUP BY giocatore_id
+           ORDER BY sessioni DESC"""
+    )
+    return rows_as_dicts(cur)
+
+
 def delete_tutte_variazioni_e_leader_log(conn) -> None:
     """Usato solo da recompute_all: azzera le tabelle derivate prima del replay."""
     conn.execute("DELETE FROM variazioni_rk")
     conn.execute("DELETE FROM ranking_leader_log")
+    conn.execute("DELETE FROM sessione_leader_log")
 
 
 # --- sessioni di gioco --------------------------------------------------------
