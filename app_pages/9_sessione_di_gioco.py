@@ -210,10 +210,19 @@ with st.container(border=True):
             st.success("🏆 Girone completato! Tutte le partite sono state giocate.")
             st.stop()
 
-        prossima_idx = rimanenti_idx[0]
-        squadra_1_idx, squadra_2_idx = fixture[prossima_idx]
+        def _etichetta_fixture(idx: int) -> str:
+            a, b = fixture[idx]
+            return f"Partita {idx + 1}: Squadra {a + 1} vs Squadra {b + 1}"
+
         st.divider()
-        st.subheader(f"Prossima partita: Squadra {squadra_1_idx + 1} vs Squadra {squadra_2_idx + 1}")
+        prossima_idx = st.selectbox(
+            "Quale partita del girone giochi ora?",
+            options=rimanenti_idx,
+            format_func=_etichetta_fixture,
+            key="torneo_prossima_scelta",
+        )
+        squadra_1_idx, squadra_2_idx = fixture[prossima_idx]
+        st.subheader(f"Partita: Squadra {squadra_1_idx + 1} vs Squadra {squadra_2_idx + 1}")
 
         key_a, key_b = f"torneo_squadra_a_{prossima_idx}", f"torneo_squadra_b_{prossima_idx}"
         if key_a not in st.session_state:
@@ -253,6 +262,7 @@ with st.container(border=True):
 
             def _segna_fixture_giocata(idx: int = prossima_idx) -> None:
                 st.session_state["torneo_giocate"].add(idx)
+                st.session_state.pop("torneo_prossima_scelta", None)
                 db.set_programma_torneo(
                     conn,
                     sessione_id,
