@@ -1,6 +1,7 @@
 import streamlit as st
 
 from rokkini import auth, db
+from rokkini.parametri import fetch_parametri_attivi
 
 conn = db.get_connection()
 auth.require_role(conn, "super_admin")
@@ -15,9 +16,28 @@ with st.form("nuovo_giocatore_form", clear_on_submit=True):
         if not nome.strip():
             st.error("Il nome non può essere vuoto.")
         else:
-            db.insert_giocatore(conn, nome.strip())
+            nuovo_id = db.insert_giocatore(conn, nome.strip())
             conn.commit()
-            st.success(f"Giocatore '{nome.strip()}' creato con 1000 Rk, in qualificazione.")
+
+            messaggio_sessione = ""
+            sessione_attiva = db.fetch_sessione_attiva(conn)
+            if sessione_attiva is not None:
+                # senza questo, un giocatore creato a sessione gia' aperta non
+                # comparirebbe tra i presenti finche' qualcuno non lo aggiunge
+                # a mano dal multiselect di "Sessione di gioco".
+                partecipanti_attuali = {
+                    g["id"] for g in db.fetch_partecipanti_sessione(conn, sessione_attiva["id"])
+                }
+                db.set_partecipanti_sessione(
+                    conn, sessione_attiva["id"], list(partecipanti_attuali | {nuovo_id})
+                )
+                messaggio_sessione = " ed è stato aggiunto alla sessione in corso"
+
+            rk_iniziale = fetch_parametri_attivi(conn).rk_iniziale
+            st.success(
+                f"Giocatore '{nome.strip()}' creato con {rk_iniziale} Rk, in "
+                f"qualificazione{messaggio_sessione}."
+            )
             st.rerun()
 
 st.subheader("Giocatori esistenti")
