@@ -9,7 +9,6 @@ from rokkini.matchmaking import (
     genera_squadre_multiple,
     numero_partite_per_girone_equo,
     programma_completo_girone_rotante,
-    prossima_partita_girone_rotante,
 )
 
 conn = db.get_connection()
@@ -114,13 +113,19 @@ with st.container(border=True):
                 st.session_state["torneo_partite_target"] = _programma_salvato["target"]
                 st.session_state["torneo_partite_completate"] = _programma_salvato["completate"]
                 # stesso discorso del caso "fisso" sopra, per la partita
-                # (proposta o modificata a mano) attualmente in corso.
-                partite_previste_salvate = _programma_salvato.get("partite_previste")
-                if partite_previste_salvate:
-                    idx_corrente = _programma_salvato["completate"]
-                    squadra_a_salvata, squadra_b_salvata = partite_previste_salvate[0]
-                    st.session_state[f"torneo_rot_squadra_a_{idx_corrente}"] = squadra_a_salvata
-                    st.session_state[f"torneo_rot_squadra_b_{idx_corrente}"] = squadra_b_salvata
+                # scelta (e le sue squadre, eventualmente modificate a mano)
+                # attualmente in corso.
+                idx_corrente = _programma_salvato["completate"]
+                scelta_salvata = _programma_salvato.get("scelta_idx", 0)
+                st.session_state["torneo_rot_scelta"] = scelta_salvata
+                st.session_state["torneo_rot_scelta_precedente"] = scelta_salvata
+                if "squadra_a_corrente" in _programma_salvato:
+                    st.session_state[f"torneo_rot_squadra_a_{idx_corrente}"] = _programma_salvato[
+                        "squadra_a_corrente"
+                    ]
+                    st.session_state[f"torneo_rot_squadra_b_{idx_corrente}"] = _programma_salvato[
+                        "squadra_b_corrente"
+                    ]
 
     partecipanti_attuali = {g["id"] for g in db.fetch_partecipanti_sessione(conn, sessione_id)}
     pool = st.multiselect(
@@ -353,20 +358,48 @@ with st.container(border=True):
         candidati = [
             GiocatorePerMatchmaking(gid, giocatori_per_id[gid]["rk_attuale"]) for gid in pool
         ]
-        suggerita_a, suggerita_b = prossima_partita_girone_rotante(
-            candidati, dimensione_corrente, conteggio
+
+        # tutte le partite rimanenti proiettate da qui, non solo la prossima:
+        # cosi' si puo' scegliere quale giocare ora, come nel girone a
+        # squadre fisse — e' comunque solo una proposta, non un impegno: se
+        # il pool cambia o una squadra viene modificata a mano, la proiezione
+        # da quel punto in poi cambia di conseguenza al prossimo rerun.
+        partite_rimanenti = target - completate
+        partite_previste = programma_completo_girone_rotante(
+            candidati, dimensione_corrente, conteggio, partite_rimanenti
         )
+
+        def _etichetta_partita_rot(i: int) -> str:
+            p_a, p_b = partite_previste[i]
+            nomi_a = ", ".join(nomi_per_id[gid] for gid in p_a)
+            nomi_b = ", ".join(nomi_per_id[gid] for gid in p_b)
+            return f"Partita {completate + i + 1}: {nomi_a} vs {nomi_b}"
+
+        st.divider()
+        # poda difensiva: se una partita precedente ha ridotto il numero di
+        # partite rimanenti, una scelta salvata potrebbe non essere piu' valida
+        if st.session_state.get("torneo_rot_scelta", 0) >= len(partite_previste):
+            st.session_state["torneo_rot_scelta"] = 0
+        scelta_idx = st.selectbox(
+            "Quale partita giochi ora?",
+            options=list(range(len(partite_previste))),
+            format_func=_etichetta_partita_rot,
+            key="torneo_rot_scelta",
+        )
+        suggerita_a, suggerita_b = partite_previste[scelta_idx]
 
         idx_partita = completate
         key_a, key_b = f"torneo_rot_squadra_a_{idx_partita}", f"torneo_rot_squadra_b_{idx_partita}"
-        if key_a not in st.session_state:
+        # se e' stata scelta una partita diversa da quella proposta finora,
+        # le squadre precompilate vanno riprese da capo (altrimenti mostrerebbero
+        # ancora quelle della scelta precedente, eventualmente modificate a mano)
+        if key_a not in st.session_state or st.session_state.get("torneo_rot_scelta_precedente") != scelta_idx:
             st.session_state[key_a] = suggerita_a
             st.session_state[key_b] = suggerita_b
+        st.session_state["torneo_rot_scelta_precedente"] = scelta_idx
         st.session_state[key_a] = [gid for gid in st.session_state[key_a] if gid in pool]
         st.session_state[key_b] = [gid for gid in st.session_state[key_b] if gid in pool]
 
-        st.divider()
-        st.subheader(f"Prossima partita ({completate + 1}/{target})")
         st.caption(
             "Squadre proposte in base a chi ha giocato meno finora. Puoi modificarle a mano "
             "(es. se qualcuno è andato via)."
@@ -387,44 +420,37 @@ with st.container(border=True):
                 label_visibility="collapsed",
             )
 
-        # proietta anche le partite successive (oltre a questa) applicando
-        # ripetutamente lo stesso criterio, a partire dal conteggio che si
-        # avrebbe dopo questa partita: e' una previsione utile a mostrare
-        # "il programma", non un impegno — se il pool cambia o una di
-        # queste partite viene modificata a mano prima di essere
-        # confermata, il resto della proiezione da li' in poi cambia.
-        partite_previste = [(squadra_a, squadra_b)]
-        partite_rimanenti = target - completate - 1
-        if partite_rimanenti > 0:
-            conteggio_dopo_questa = dict(conteggio)
-            for gid in squadra_a + squadra_b:
-                conteggio_dopo_questa[gid] = conteggio_dopo_questa.get(gid, 0) + 1
-            partite_previste += programma_completo_girone_rotante(
-                candidati, dimensione_corrente, conteggio_dopo_questa, partite_rimanenti
-            )
-
         with st.container(border=True):
             st.markdown("**Programma previsto del girone**")
             for i, (p_a, p_b) in enumerate(partite_previste):
-                idx_assoluto = completate + i
                 nomi_a = ", ".join(nomi_per_id[gid] for gid in p_a)
                 nomi_b = ", ".join(nomi_per_id[gid] for gid in p_b)
-                st.caption(f"Partita {idx_assoluto + 1}: {nomi_a} vs {nomi_b}")
+                prefisso = "▶️ " if i == scelta_idx else ""
+                st.caption(f"{prefisso}Partita {completate + i + 1}: {nomi_a} vs {nomi_b}")
 
-        # tiene aggiornato su "Sessioni attive" il programma previsto (puo'
-        # cambiare finche' non viene confermato: nuovi arrivi/partenze dal
-        # pool o modifiche manuali alle squadre).
-        db.set_programma_torneo(
-            conn,
-            sessione_id,
-            {
+        def _programma_rotante(**extra) -> dict:
+            programma = {
                 "tipo": "rotante",
                 "dimensione": dimensione_corrente,
                 "conteggio": {str(gid): n for gid, n in conteggio.items()},
                 "target": target,
-                "completate": completate,
-                "partite_previste": [[list(a), list(b)] for a, b in partite_previste],
-            },
+                "completate": st.session_state["torneo_partite_completate"],
+            }
+            programma.update(extra)
+            return programma
+
+        # persiste la scelta corrente (partita scelta + squadre, anche se
+        # modificate a mano) a ogni rerun, cosi' un cambio di pagina o un
+        # redeploy non la fa tornare a quella proposta di default.
+        db.set_programma_torneo(
+            conn,
+            sessione_id,
+            _programma_rotante(
+                partite_previste=[[list(a), list(b)] for a, b in partite_previste],
+                scelta_idx=scelta_idx,
+                squadra_a_corrente=list(squadra_a),
+                squadra_b_corrente=list(squadra_b),
+            ),
         )
 
         data_partita_torneo = st.date_input(
@@ -443,20 +469,9 @@ with st.container(border=True):
                         st.session_state["torneo_conteggio_partite"].get(gid, 0) + 1
                     )
                 st.session_state["torneo_partite_completate"] += 1
-                db.set_programma_torneo(
-                    conn,
-                    sessione_id,
-                    {
-                        "tipo": "rotante",
-                        "dimensione": dimensione_corrente,
-                        "conteggio": {
-                            str(gid): n
-                            for gid, n in st.session_state["torneo_conteggio_partite"].items()
-                        },
-                        "target": target,
-                        "completate": st.session_state["torneo_partite_completate"],
-                    },
-                )
+                st.session_state.pop("torneo_rot_scelta", None)
+                st.session_state.pop("torneo_rot_scelta_precedente", None)
+                db.set_programma_torneo(conn, sessione_id, _programma_rotante())
                 if st.session_state["torneo_partite_completate"] >= target:
                     _termina_e_pulisci(sessione_id)
 

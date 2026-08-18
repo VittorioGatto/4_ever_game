@@ -45,10 +45,11 @@ def test_programma_torneo_round_trip_preserva_override_squadre_manuali(conn, adm
     assert riletto["override_corrente"] == {"idx": 0, "squadra_a": [1, 2, 7], "squadra_b": [4, 5, 6]}
 
 
-def test_programma_torneo_round_trip_preserva_partite_previste(conn, admin_id):
-    """Stesso discorso della funzione precedente, per il girone a rotazione
-    (dove la squadra corrente, eventualmente modificata a mano, e' il primo
-    elemento di partite_previste)."""
+def test_programma_torneo_round_trip_preserva_scelta_e_squadre_rotante(conn, admin_id):
+    """Stesso discorso della funzione precedente, per il girone a rotazione:
+    l'admin puo' scegliere quale delle partite proposte giocare (non solo
+    la prima), quindi va persistita anche quale ha scelto (scelta_idx) oltre
+    alle sue squadre, eventualmente modificate a mano."""
     sessione_id = db.insert_sessione(conn, admin_id)
     programma = {
         "tipo": "rotante",
@@ -57,11 +58,16 @@ def test_programma_torneo_round_trip_preserva_partite_previste(conn, admin_id):
         "target": 4,
         "completate": 1,
         "partite_previste": [[[1, 2, 9], [4, 5, 6]], [[7, 8, 1], [2, 3, 4]]],
+        "scelta_idx": 1,
+        "squadra_a_corrente": [7, 8, 1],
+        "squadra_b_corrente": [2, 3, 9],
     }
     db.set_programma_torneo(conn, sessione_id, programma)
 
     riletto = db.fetch_programma_torneo(conn, sessione_id)
-    assert riletto["partite_previste"][0] == [[1, 2, 9], [4, 5, 6]]
+    assert riletto["scelta_idx"] == 1
+    assert riletto["squadra_a_corrente"] == [7, 8, 1]
+    assert riletto["squadra_b_corrente"] == [2, 3, 9]
 
 
 def test_sessioni_leader_log_round_trip_dedup(conn, admin_id):
