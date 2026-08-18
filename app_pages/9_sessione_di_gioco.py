@@ -97,6 +97,15 @@ with st.container(border=True):
                 st.session_state["torneo_squadre"] = _programma_salvato["squadre"]
                 st.session_state["torneo_fixture"] = [tuple(p) for p in _programma_salvato["fixture"]]
                 st.session_state["torneo_giocate"] = set(_programma_salvato["giocate"])
+                # le squadre della fixture in corso possono essere state
+                # modificate a mano (es. qualcuno se ne va): senza ripristinare
+                # anche questo, un cambio di pagina (o un redeploy) le
+                # riporterebbe a quelle generate automaticamente, perdendo la
+                # modifica manuale — vedi anche il commento poco sopra.
+                override = _programma_salvato.get("override_corrente")
+                if override and override["idx"] not in st.session_state["torneo_giocate"]:
+                    st.session_state[f"torneo_squadra_a_{override['idx']}"] = override["squadra_a"]
+                    st.session_state[f"torneo_squadra_b_{override['idx']}"] = override["squadra_b"]
             else:
                 st.session_state["torneo_squadre_fisse"] = False
                 st.session_state["torneo_conteggio_partite"] = {
@@ -104,6 +113,14 @@ with st.container(border=True):
                 }
                 st.session_state["torneo_partite_target"] = _programma_salvato["target"]
                 st.session_state["torneo_partite_completate"] = _programma_salvato["completate"]
+                # stesso discorso del caso "fisso" sopra, per la partita
+                # (proposta o modificata a mano) attualmente in corso.
+                partite_previste_salvate = _programma_salvato.get("partite_previste")
+                if partite_previste_salvate:
+                    idx_corrente = _programma_salvato["completate"]
+                    squadra_a_salvata, squadra_b_salvata = partite_previste_salvate[0]
+                    st.session_state[f"torneo_rot_squadra_a_{idx_corrente}"] = squadra_a_salvata
+                    st.session_state[f"torneo_rot_squadra_b_{idx_corrente}"] = squadra_b_salvata
 
     partecipanti_attuali = {g["id"] for g in db.fetch_partecipanti_sessione(conn, sessione_id)}
     pool = st.multiselect(
@@ -224,6 +241,18 @@ with st.container(border=True):
         squadra_1_idx, squadra_2_idx = fixture[prossima_idx]
         st.subheader(f"Partita: Squadra {squadra_1_idx + 1} vs Squadra {squadra_2_idx + 1}")
 
+        def _programma_fisso(override_corrente: dict | None = None) -> dict:
+            programma = {
+                "tipo": "fisso",
+                "dimensione": dimensione_corrente,
+                "squadre": squadre,
+                "fixture": [list(coppia) for coppia in fixture],
+                "giocate": sorted(st.session_state["torneo_giocate"]),
+            }
+            if override_corrente is not None:
+                programma["override_corrente"] = override_corrente
+            return programma
+
         key_a, key_b = f"torneo_squadra_a_{prossima_idx}", f"torneo_squadra_b_{prossima_idx}"
         if key_a not in st.session_state:
             st.session_state[key_a] = [gid for gid in squadre[squadra_1_idx] if gid in pool]
@@ -250,6 +279,15 @@ with st.container(border=True):
                 label_visibility="collapsed",
             )
 
+        # persiste la selezione corrente (anche se modificata a mano) a ogni
+        # rerun, cosi' un cambio di pagina o un redeploy non la fa tornare a
+        # quella generata automaticamente — vedi il ripristino piu' sopra.
+        db.set_programma_torneo(
+            conn,
+            sessione_id,
+            _programma_fisso({"idx": prossima_idx, "squadra_a": list(squadra_a), "squadra_b": list(squadra_b)}),
+        )
+
         data_partita_torneo = st.date_input(
             "Data partita", value=date.today(), key=f"torneo_data_{prossima_idx}"
         )
@@ -263,17 +301,7 @@ with st.container(border=True):
             def _segna_fixture_giocata(idx: int = prossima_idx) -> None:
                 st.session_state["torneo_giocate"].add(idx)
                 st.session_state.pop("torneo_prossima_scelta", None)
-                db.set_programma_torneo(
-                    conn,
-                    sessione_id,
-                    {
-                        "tipo": "fisso",
-                        "dimensione": dimensione_corrente,
-                        "squadre": squadre,
-                        "fixture": [list(coppia) for coppia in fixture],
-                        "giocate": sorted(st.session_state["torneo_giocate"]),
-                    },
-                )
+                db.set_programma_torneo(conn, sessione_id, _programma_fisso())
                 if len(st.session_state["torneo_giocate"]) >= len(fixture):
                     _termina_e_pulisci(sessione_id)
 

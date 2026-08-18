@@ -24,6 +24,46 @@ def test_ciclo_di_vita_sessione(conn, admin_id):
     assert chiusa["terminata_at"] is not None
 
 
+def test_programma_torneo_round_trip_preserva_override_squadre_manuali(conn, admin_id):
+    """La UI (app_pages/9_sessione_di_gioco.py) persiste le squadre modificate
+    a mano per la fixture in corso dentro override_corrente, cosi' un cambio
+    di pagina o un redeploy (che azzerano st.session_state) le ripristina
+    invece di tornare a quelle generate automaticamente. Qui si verifica solo
+    il round trip JSON del campo, non la UI."""
+    sessione_id = db.insert_sessione(conn, admin_id)
+    programma = {
+        "tipo": "fisso",
+        "dimensione": 3,
+        "squadre": [[1, 2, 3], [4, 5, 6]],
+        "fixture": [[0, 1]],
+        "giocate": [],
+        "override_corrente": {"idx": 0, "squadra_a": [1, 2, 7], "squadra_b": [4, 5, 6]},
+    }
+    db.set_programma_torneo(conn, sessione_id, programma)
+
+    riletto = db.fetch_programma_torneo(conn, sessione_id)
+    assert riletto["override_corrente"] == {"idx": 0, "squadra_a": [1, 2, 7], "squadra_b": [4, 5, 6]}
+
+
+def test_programma_torneo_round_trip_preserva_partite_previste(conn, admin_id):
+    """Stesso discorso della funzione precedente, per il girone a rotazione
+    (dove la squadra corrente, eventualmente modificata a mano, e' il primo
+    elemento di partite_previste)."""
+    sessione_id = db.insert_sessione(conn, admin_id)
+    programma = {
+        "tipo": "rotante",
+        "dimensione": 3,
+        "conteggio": {"1": 0, "2": 0},
+        "target": 4,
+        "completate": 1,
+        "partite_previste": [[[1, 2, 9], [4, 5, 6]], [[7, 8, 1], [2, 3, 4]]],
+    }
+    db.set_programma_torneo(conn, sessione_id, programma)
+
+    riletto = db.fetch_programma_torneo(conn, sessione_id)
+    assert riletto["partite_previste"][0] == [[1, 2, 9], [4, 5, 6]]
+
+
 def test_set_partecipanti_sessione_aggiunge_e_rimuove(conn, admin_id):
     p = crea_giocatori(conn, 8)
     sessione_id = db.insert_sessione(conn, admin_id)
