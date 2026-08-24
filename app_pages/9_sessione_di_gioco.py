@@ -30,6 +30,19 @@ def _etichetta(giocatore_id: int) -> str:
     return nomi_per_id[giocatore_id]
 
 
+def _sincronizza_scelta_valida(key: str, opzioni_valide: list) -> None:
+    """La scelta persistita in st.session_state (da un ripristino dal DB o
+    da un rerun precedente) potrebbe non essere piu' un'opzione valida: una
+    partita gia' giocata nel frattempo, il girone rigenerato, o (causa di un
+    crash osservato in produzione: TypeError confrontando str e int) un tipo
+    imprevisto. Un confronto con `>=` o `not in` puo' sollevare eccezioni con
+    tipi incompatibili; `in` su una lista invece si limita a un confronto di
+    uguaglianza per ogni elemento e non solleva mai, quindi qui basta
+    verificare l'appartenenza e resettare al default se manca."""
+    if st.session_state.get(key) not in opzioni_valide:
+        st.session_state[key] = opzioni_valide[0]
+
+
 def _termina_e_pulisci(sessione_id: int) -> None:
     """Termina la sessione e ripulisce dal session_state tutto cio' che si
     riferiva a lei (squadre, fixture, pool selezionato): session_state
@@ -237,6 +250,7 @@ with st.container(border=True):
             return f"Partita {idx + 1}: Squadra {a + 1} vs Squadra {b + 1}"
 
         st.divider()
+        _sincronizza_scelta_valida("torneo_prossima_scelta", rimanenti_idx)
         prossima_idx = st.selectbox(
             "Quale partita del girone giochi ora?",
             options=rimanenti_idx,
@@ -290,7 +304,9 @@ with st.container(border=True):
         db.set_programma_torneo(
             conn,
             sessione_id,
-            _programma_fisso({"idx": prossima_idx, "squadra_a": list(squadra_a), "squadra_b": list(squadra_b)}),
+            _programma_fisso(
+                {"idx": int(prossima_idx), "squadra_a": list(squadra_a), "squadra_b": list(squadra_b)}
+            ),
         )
 
         data_partita_torneo = st.date_input(
@@ -376,13 +392,11 @@ with st.container(border=True):
             return f"Partita {completate + i + 1}: {nomi_a} vs {nomi_b}"
 
         st.divider()
-        # poda difensiva: se una partita precedente ha ridotto il numero di
-        # partite rimanenti, una scelta salvata potrebbe non essere piu' valida
-        if st.session_state.get("torneo_rot_scelta", 0) >= len(partite_previste):
-            st.session_state["torneo_rot_scelta"] = 0
+        opzioni_scelta = list(range(len(partite_previste)))
+        _sincronizza_scelta_valida("torneo_rot_scelta", opzioni_scelta)
         scelta_idx = st.selectbox(
             "Quale partita giochi ora?",
-            options=list(range(len(partite_previste))),
+            options=opzioni_scelta,
             format_func=_etichetta_partita_rot,
             key="torneo_rot_scelta",
         )
@@ -447,7 +461,7 @@ with st.container(border=True):
             sessione_id,
             _programma_rotante(
                 partite_previste=[[list(a), list(b)] for a, b in partite_previste],
-                scelta_idx=scelta_idx,
+                scelta_idx=int(scelta_idx),
                 squadra_a_corrente=list(squadra_a),
                 squadra_b_corrente=list(squadra_b),
             ),
