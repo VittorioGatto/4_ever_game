@@ -242,7 +242,12 @@ with st.container(border=True):
 
         rimanenti_idx = [i for i in range(len(fixture)) if i not in giocate]
         if not rimanenti_idx:
-            st.success("🏆 Girone completato! Tutte le partite sono state giocate.")
+            st.success(
+                "🏆 Girone completato! Tutte le partite sono state giocate. La sessione resta "
+                "aperta: premi '🎲 Genera/rigenera squadre' qui sopra per iniziare un nuovo "
+                "girone con gli stessi presenti (tiene conto dei Rk aggiornati con le partite "
+                "appena giocate), oppure '⏹️ Termina sessione' quando avete finito."
+            )
             st.stop()
 
         def _etichetta_fixture(idx: int) -> str:
@@ -323,8 +328,6 @@ with st.container(border=True):
                 st.session_state["torneo_giocate"].add(idx)
                 st.session_state.pop("torneo_prossima_scelta", None)
                 db.set_programma_torneo(conn, sessione_id, _programma_fisso())
-                if len(st.session_state["torneo_giocate"]) >= len(fixture):
-                    _termina_e_pulisci(sessione_id)
 
             esito = ui_common.registra_set_live(f"torneo_set_live_{prossima_idx}")
             if esito:
@@ -364,7 +367,12 @@ with st.container(border=True):
         st.write(f"Partite del girone: {completate}/{target} giocate")
 
         if completate >= target:
-            st.success("🏆 Girone completato! Tutti hanno giocato lo stesso numero di partite.")
+            st.success(
+                "🏆 Girone completato! Tutti hanno giocato lo stesso numero di partite. La "
+                "sessione resta aperta: premi '🎲 Genera/rigenera squadre' qui sopra per un "
+                "nuovo girone con gli stessi presenti (tiene conto dei Rk aggiornati con le "
+                "partite appena giocate), oppure '⏹️ Termina sessione' quando avete finito."
+            )
             st.stop()
 
         conteggio = st.session_state["torneo_conteggio_partite"]
@@ -486,8 +494,6 @@ with st.container(border=True):
                 st.session_state.pop("torneo_rot_scelta", None)
                 st.session_state.pop("torneo_rot_scelta_precedente", None)
                 db.set_programma_torneo(conn, sessione_id, _programma_rotante())
-                if st.session_state["torneo_partite_completate"] >= target:
-                    _termina_e_pulisci(sessione_id)
 
             esito = ui_common.registra_set_live(f"torneo_rot_set_live_{idx_partita}")
             if esito:
