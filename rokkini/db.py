@@ -106,9 +106,22 @@ def row_as_dict(cursor, row) -> dict[str, Any] | None:
 
 
 def insert_giocatore(conn, nome: str) -> int:
+    # rk_attuale/rk_record/fascia_attuale vanno passati esplicitamente,
+    # NON lasciati ai default della colonna in schema.sql (1000/'H', fissi):
+    # da quando rk_iniziale e' configurabile dalla pagina Simulazione, quei
+    # default sono spesso disallineati dal valore davvero attivo.
+    from rokkini.elo import tier_for_rk
+    from rokkini.parametri import fetch_parametri_attivi
+
+    parametri = fetch_parametri_attivi(conn)
     cur = conn.execute(
-        "INSERT INTO giocatori (nome) VALUES (?)",
-        (nome,),
+        "INSERT INTO giocatori (nome, rk_attuale, rk_record, fascia_attuale) VALUES (?, ?, ?, ?)",
+        (
+            nome,
+            parametri.rk_iniziale,
+            parametri.rk_iniziale,
+            tier_for_rk(parametri.rk_iniziale, parametri.fasce),
+        ),
     )
     conn.commit()
     return cur.lastrowid

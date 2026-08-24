@@ -1,6 +1,23 @@
+from dataclasses import replace
+
 import pytest
 
-from rokkini import db, rating_engine
+from rokkini import db, parametri, rating_engine
+
+
+def test_insert_giocatore_usa_rk_iniziale_attivo_non_il_default_dello_schema(conn):
+    """schema.sql ha rk_attuale/fascia_attuale DEFAULT 1000/'H' fissi: senza
+    passarli esplicitamente, un giocatore creato dopo che rk_iniziale e'
+    stato spostato (es. dalla pagina Simulazione) nascerebbe con lo Rk
+    sbagliato — esattamente il bug segnalato in produzione."""
+    parametri.salva_parametri_attivi(conn, replace(parametri.DEFAULT, rk_iniziale=1250))
+
+    giocatore_id = db.insert_giocatore(conn, "NuovoGiocatore")
+
+    giocatore = db.fetch_giocatore(conn, giocatore_id)
+    assert giocatore["rk_attuale"] == 1250
+    assert giocatore["rk_record"] == 1250
+    assert giocatore["fascia_attuale"] == "C"
 
 
 def test_delete_giocatore_senza_partite(conn):
