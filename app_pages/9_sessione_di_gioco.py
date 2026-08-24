@@ -5,10 +5,12 @@ import streamlit as st
 from rokkini import auth, db, stats, ui_common
 from rokkini.matchmaking import (
     GiocatorePerMatchmaking,
+    genera_combinazioni_bilanciate,
     genera_fixture_girone,
     genera_squadre_multiple,
     numero_partite_per_girone_equo,
     programma_completo_girone_rotante,
+    scegli_proposta_diversa_dalla_precedente,
 )
 
 conn = db.get_connection()
@@ -180,7 +182,20 @@ with st.container(border=True):
             candidati = [
                 GiocatorePerMatchmaking(gid, giocatori_per_id[gid]["rk_attuale"]) for gid in pool
             ]
-            squadre_generate = genera_squadre_multiple(candidati, dimensione_torneo)
+            if len(pool) == dimensione_torneo * 2:
+                # esattamente 2 squadre (es. 6 o 8 presenti): il draft a
+                # serpentina di genera_squadre_multiple e' deterministico, con
+                # lo stesso pool e gli stessi Rk rigenererebbe sempre le
+                # identiche squadre. Qui invece si enumerano le divisioni
+                # possibili (poche, a questa dimensione) e si sceglie la più
+                # equilibrata tra quelle diverse dall'ultimo accoppiamento.
+                proposte = genera_combinazioni_bilanciate(candidati, dimensione_torneo, n_proposte=10)
+                proposta = scegli_proposta_diversa_dalla_precedente(
+                    proposte, st.session_state.get("torneo_squadre")
+                )
+                squadre_generate = [proposta.squadra_a, proposta.squadra_b]
+            else:
+                squadre_generate = genera_squadre_multiple(candidati, dimensione_torneo)
             fixture_generata = genera_fixture_girone(len(squadre_generate))
             st.session_state["torneo_squadre"] = squadre_generate
             st.session_state["torneo_fixture"] = fixture_generata

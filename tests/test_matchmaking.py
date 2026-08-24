@@ -8,6 +8,7 @@ from rokkini.matchmaking import (
     numero_partite_per_girone_equo,
     programma_completo_girone_rotante,
     prossima_partita_girone_rotante,
+    scegli_proposta_diversa_dalla_precedente,
 )
 
 
@@ -62,6 +63,43 @@ def test_squadra_a_e_b_non_si_sovrappongono_e_coprono_tutti():
     for p in genera_combinazioni_bilanciate(giocatori, dimensione=3, n_proposte=10):
         assert set(p.squadra_a) & set(p.squadra_b) == set()
         assert set(p.squadra_a) | set(p.squadra_b) == {g.player_id for g in giocatori}
+
+
+# --- scegli_proposta_diversa_dalla_precedente ---------------------------------
+
+
+def test_scegli_proposta_diversa_evita_la_stessa_divisione():
+    giocatori = _giocatori([1000, 1050, 1100, 1150, 1200, 1250])
+    proposte = genera_combinazioni_bilanciate(giocatori, dimensione=3, n_proposte=10)
+    precedente = [proposte[0].squadra_a, proposte[0].squadra_b]
+
+    scelta = scegli_proposta_diversa_dalla_precedente(proposte, precedente)
+
+    divisione_precedente = {frozenset(precedente[0]), frozenset(precedente[1])}
+    divisione_scelta = {frozenset(scelta.squadra_a), frozenset(scelta.squadra_b)}
+    assert divisione_scelta != divisione_precedente
+
+
+def test_scegli_proposta_diversa_ignora_scambio_a_b():
+    """La stessa divisione con A e B scambiate non conta come 'diversa'."""
+    giocatori = _giocatori([1000, 1050, 1100, 1150, 1200, 1250])
+    proposte = genera_combinazioni_bilanciate(giocatori, dimensione=3, n_proposte=10)
+    precedente_scambiata = [proposte[0].squadra_b, proposte[0].squadra_a]
+
+    scelta = scegli_proposta_diversa_dalla_precedente(proposte, precedente_scambiata)
+
+    assert scelta.squadra_a != proposte[0].squadra_a or scelta.squadra_b != proposte[0].squadra_b
+    divisione_precedente = {frozenset(precedente_scambiata[0]), frozenset(precedente_scambiata[1])}
+    divisione_scelta = {frozenset(scelta.squadra_a), frozenset(scelta.squadra_b)}
+    assert divisione_scelta != divisione_precedente
+
+
+def test_scegli_proposta_senza_precedente_restituisce_la_piu_equilibrata():
+    giocatori = _giocatori([1000, 1050, 1100, 1150, 1200, 1250])
+    proposte = genera_combinazioni_bilanciate(giocatori, dimensione=3, n_proposte=10)
+
+    assert scegli_proposta_diversa_dalla_precedente(proposte, None) is proposte[0]
+    assert scegli_proposta_diversa_dalla_precedente(proposte, []) is proposte[0]
 
 
 # --- genera_squadre_multiple -------------------------------------------------

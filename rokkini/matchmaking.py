@@ -71,6 +71,28 @@ def genera_combinazioni_bilanciate(
     return proposte[:n_proposte]
 
 
+def scegli_proposta_diversa_dalla_precedente(
+    proposte: list[PropostaSquadre],
+    squadre_precedenti: list[list[int]] | None,
+) -> PropostaSquadre:
+    """Tra `proposte` (già ordinate dalla più equilibrata, vedi
+    genera_combinazioni_bilanciate), sceglie la prima la cui divisione non
+    coincide con `squadre_precedenti` — a prescindere da quale metà era
+    etichettata A o B, che non conta come una squadra "diversa". Usata da
+    "Genera/rigenera squadre" per non riproporre esattamente lo stesso
+    accoppiamento quando gli Rk non sono cambiati abbastanza da alterare
+    l'ordinamento. Se non c'è una divisione precedente, o nessuna proposta
+    la evita (pool piccolissimo, poche combinazioni possibili), restituisce
+    semplicemente la più equilibrata."""
+    if squadre_precedenti and len(squadre_precedenti) == 2:
+        precedente = {frozenset(squadre_precedenti[0]), frozenset(squadre_precedenti[1])}
+        for proposta in proposte:
+            attuale = {frozenset(proposta.squadra_a), frozenset(proposta.squadra_b)}
+            if attuale != precedente:
+                return proposta
+    return proposte[0]
+
+
 def genera_squadre_multiple(
     giocatori: list[GiocatorePerMatchmaking], dimensione: int
 ) -> list[list[int]]:
